@@ -86,6 +86,31 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
 
 <h3>Version history</h3>
 
+<b>21.10.2012&nbsp;&nbsp;&nbsp;&nbsp;3.1.15</b>
+
+<p>
+After a long time, some changes and fixes are pending, but in this version only one fix is applied.
+The bug with lockfiles is very critical, and hopefully the creation of new package is easier for
+maintainers, when only one fix is done.
+</p>
+
+<p>
+Bug fixes:
+<ol start="1">
+  <li><p>
+      When creating a lockfile, main process used incorrect offset -1 with the table of names of processes.
+      This caused segmentation fault when smsd was compiled using latest compilers.
+  </p></li>
+
+</ol>
+</p>
+
+<p>
+<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
+</p>
+
+<hr>
+
 <b>21.09.2010&nbsp;&nbsp;&nbsp;&nbsp;3.1.14</b>
 
 <ol>
@@ -190,10 +215,6 @@ Bug fixes:
   </p></li>
 
 </ol>
-</p>
-
-<p>
-<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
 </p>
 
 <hr>

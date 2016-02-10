@@ -42,7 +42,11 @@ int lockfile( char*  filename)
     lockfile=open(lockfilename,O_CREAT|O_EXCL|O_WRONLY,0644);
     if (lockfile>=0)
     {
-      snprintf(pid, sizeof(pid), "%i %s\n", (int)getpid(), DEVICE.name);
+      // 3.1.15:
+      //snprintf(pid, sizeof(pid), "%i %s\n", (int)getpid(), DEVICE.name);
+      snprintf(pid, sizeof(pid), "%i %s\n", (int)getpid(),
+               (process_id == -1) ? "MAINPROCESS" : DEVICE.name);
+
       write(lockfile, pid, strlen(pid));
       close(lockfile);
       sync();
