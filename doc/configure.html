@@ -1,0 +1,1800 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <META NAME="Title" CONTENT="SMS Server Tools">
+    <META NAME="Robots" CONTENT="INDEX,FOLLOW">
+    <META NAME="Language" CONTENT="English">
+    <title>SMS Server Tools 3</title>
+<STYLE type="text/css">
+BODY {
+  BACKGROUND: #ffffff; MARGIN: 5px 5px 10px; FONT: 10pt verdana, geneva, lucida, arial, helvetica, sans-serif; COLOR: #000000
+}
+td {
+  FONT: 10pt verdana, geneva, lucida, arial, helvetica, sans-serif;
+}
+h3 {
+  background-color: #DCDCFE;
+}
+blockquote {
+  background-color: #FFD;
+  font-size: 90%;
+  padding:5pt;
+  padding-top:1pt;
+  margin-bottom:5pt;
+  border-style: outset;
+  border-color: #aaaa99;
+  border-width: 0.05pt 2pt 2pt 0.05pt;
+}
+blockquote p:first-letter {
+  font-size: 110%;
+  font-weight: bold;
+  color: red;
+}
+.cmenu A:link {
+  COLOR: blue; TEXT-DECORATION: none
+}
+.cmenu A:visited {
+  COLOR: blue; TEXT-DECORATION: none
+}
+.cmenu A:hover {
+  color: white;
+  text-decoration: none;
+  background: darkblue;
+}
+</STYLE>
+  </head>
+  
+<body>
+<h2><font color=blue><a href="http://smstools3.kekekasvi.com">SMS Server Tools 3</a></font></h2>
+<a href="index.html">Home</a>
+<h3>Configuring</h3>
+<!-- START --><p>
+<p>
+<b>Menu:</b><br>
+<br>
+All global settings (in alphabetic order):<br>
+
+<span class="cmenu">
+<a href="#g_adminmessage_device">&nbsp;adminmessage_device&nbsp;</a>&nbsp;
+<a href="#g_admin_to">&nbsp;admin_to&nbsp;</a>&nbsp;
+<a href="#g_alarmhandler">&nbsp;alarmhandler&nbsp;</a>&nbsp;
+<a href="#g_alarmlevel">&nbsp;alarmlevel&nbsp;</a>&nbsp;
+<a href="#g_autosplit">&nbsp;autosplit&nbsp;</a>&nbsp;
+<a href="#g_blacklist">&nbsp;blacklist&nbsp;</a>&nbsp;
+<a href="#g_blockafter">&nbsp;blockafter&nbsp;</a>&nbsp;
+<a href="#g_blocktime">&nbsp;blocktime&nbsp;</a>&nbsp;
+<a href="#g_checked">&nbsp;checked&nbsp;</a>&nbsp;
+<a href="#g_checkhandler">&nbsp;checkhandler&nbsp;</a>&nbsp;
+<a href="#g_date_filename">&nbsp;date_filename&nbsp;</a>&nbsp;
+<a href="#g_date_filename_format">&nbsp;date_filename_format&nbsp;</a>&nbsp;
+<a href="#g_datetime_format">&nbsp;datetime_format&nbsp;</a>&nbsp;
+<a href="#g_decode_unicode_text">&nbsp;decode_unicode_text&nbsp;</a>&nbsp;
+<a href="#g_delaytime">&nbsp;delaytime&nbsp;</a>&nbsp;
+<a href="#g_delaytime_mainprocess">&nbsp;delaytime_mainprocess&nbsp;</a>&nbsp;
+<a href="#g_devices">&nbsp;devices&nbsp;</a>&nbsp;
+<a href="#g_errorsleeptime">&nbsp;errorsleeptime&nbsp;</a>&nbsp;
+<a href="#g_eventhandler">&nbsp;eventhandler&nbsp;</a>&nbsp;
+<a href="#g_executable_check">&nbsp;executable_check&nbsp;</a>&nbsp;
+<a href="#g_failed">&nbsp;failed&nbsp;</a>&nbsp;
+<a href="#g_filename_preview">&nbsp;filename_preview&nbsp;</a>&nbsp;
+<a href="#g_group">&nbsp;group&nbsp;</a>&nbsp;
+<a href="#g_hangup_incoming_call">&nbsp;hangup_incoming_call&nbsp;</a>&nbsp;
+<a href="#g_ic_purge_hours">&nbsp;ic_purge_hours&nbsp;</a>&nbsp;
+<a href="#g_ic_purge_interval">&nbsp;ic_purge_interval&nbsp;</a>&nbsp;
+<a href="#g_ic_purge_minutes">&nbsp;ic_purge_minutes&nbsp;</a>&nbsp;
+<a href="#g_ic_purge_read">&nbsp;ic_purge_read&nbsp;</a>&nbsp;
+<a href="#g_ignore_exec_output">&nbsp;ignore_exec_output&nbsp;</a>&nbsp;
+<a href="#g_incoming">&nbsp;incoming&nbsp;</a>&nbsp;
+<a href="#g_incoming_utf8">&nbsp;incoming_utf8&nbsp;</a>&nbsp;
+<a href="#g_infofile">&nbsp;infofile&nbsp;</a>&nbsp;
+<a href="#g_internal_combine">&nbsp;internal_combine&nbsp;</a>&nbsp;
+<a href="#g_internal_combine_binary">&nbsp;internal_combine_binary&nbsp;</a>&nbsp;
+<a href="#g_international_prefixes">&nbsp;international_prefixes&nbsp;</a>&nbsp;
+<a href="#g_keep_filename">&nbsp;keep_filename&nbsp;</a>&nbsp;
+<a href="#g_keep_messages">&nbsp;keep_messages&nbsp;</a>&nbsp;
+<a href="#g_language_file">&nbsp;language_file&nbsp;</a>&nbsp;
+<a href="#g_log_charconv">&nbsp;log_charconv&nbsp;</a>&nbsp;
+<a href="#g_logfile">&nbsp;logfile&nbsp;</a>&nbsp;
+<a href="#g_loglevel">&nbsp;loglevel&nbsp;</a>&nbsp;
+<a href="#g_log_read_from_modem">&nbsp;log_read_from_modem&nbsp;</a>&nbsp;
+<a href="#g_log_single_lines">&nbsp;log_single_lines&nbsp;</a>&nbsp;
+<a href="#g_logtime_format">&nbsp;logtime_format&nbsp;</a>&nbsp;
+<a href="#g_log_unmodified">&nbsp;log_unmodified&nbsp;</a>&nbsp;
+<a href="#g_max_continuous_sending">&nbsp;max_continuous_sending&nbsp;</a>&nbsp;
+<a href="#g_national_prefixes">&nbsp;national_prefixes&nbsp;</a>&nbsp;
+<a href="#g_os_cygwin">&nbsp;os_cygwin&nbsp;</a>&nbsp;
+<a href="#g_outgoing">&nbsp;outgoing&nbsp;</a>&nbsp;
+<a href="#g_phonecalls">&nbsp;phonecalls&nbsp;</a>&nbsp;
+<a href="#g_pidfile">&nbsp;pidfile&nbsp;</a>&nbsp;
+<a href="#g_priviledged_numbers">&nbsp;priviledged_numbers&nbsp;</a>&nbsp;
+<a href="#g_receive_before_send">&nbsp;receive_before_send&nbsp;</a>&nbsp;
+<a href="#g_regular_run">&nbsp;regular_run&nbsp;</a>&nbsp;
+<a href="#g_regular_run_interval">&nbsp;regular_run_interval&nbsp;</a>&nbsp;
+<a href="#g_report">&nbsp;report&nbsp;</a>&nbsp;
+<a href="#g_saved">&nbsp;saved&nbsp;</a>&nbsp;
+<a href="#g_sent">&nbsp;sent&nbsp;</a>&nbsp;
+<a href="#g_shell">&nbsp;shell&nbsp;</a>&nbsp;
+<a href="#g_smart_logging">&nbsp;smart_logging&nbsp;</a>&nbsp;
+<a href="#g_stats">&nbsp;stats&nbsp;</a>&nbsp;
+<a href="#g_stats_interval">&nbsp;stats_interval&nbsp;</a>&nbsp;
+<a href="#g_stats_no_zeroes">&nbsp;stats_no_zeroes&nbsp;</a>&nbsp;
+<a href="#g_status_include_counters">&nbsp;status_include_counters&nbsp;</a>&nbsp;
+<a href="#g_status_interval">&nbsp;status_interval&nbsp;</a>&nbsp;
+<a href="#g_status_signal_quality">&nbsp;status_signal_quality&nbsp;</a>&nbsp;
+<a href="#g_store_original_filename">&nbsp;store_original_filename&nbsp;</a>&nbsp;
+<a href="#g_store_received_pdu">&nbsp;store_received_pdu&nbsp;</a>&nbsp;
+<a href="#g_store_sent_pdu">&nbsp;store_sent_pdu&nbsp;</a>&nbsp;
+<a href="#g_suspend">&nbsp;suspend&nbsp;</a>&nbsp;
+<a href="#g_terminal">&nbsp;terminal&nbsp;</a>&nbsp;
+<a href="#g_trim_text">&nbsp;trim_text&nbsp;</a>&nbsp;
+<a href="#g_umask">&nbsp;umask&nbsp;</a>&nbsp;
+<a href="#g_user">&nbsp;user&nbsp;</a>&nbsp;
+<a href="#g_validity">&nbsp;validity&nbsp;</a>&nbsp;
+<a href="#g_voicecall_hangup_ath">&nbsp;voicecall_hangup_ath&nbsp;</a>&nbsp;
+<a href="#g_whitelist">&nbsp;whitelist&nbsp;</a>&nbsp;
+</span>
+
+<br>
+<br>
+All modem settings:
+<br>
+
+<span class="cmenu">
+<a href="#m_adminmessage_count_clear">&nbsp;adminmessage_count_clear&nbsp;</a>&nbsp;
+<a href="#m_adminmessage_limit">&nbsp;adminmessage_limit&nbsp;</a>&nbsp;
+<a href="#m_admin_to">&nbsp;admin_to&nbsp;</a>&nbsp;
+<a href="#m_baudrate">&nbsp;baudrate&nbsp;</a>&nbsp;
+<a href="#m_check_memory_method">&nbsp;check_memory_method&nbsp;</a>&nbsp;
+<a href="#m_check_network">&nbsp;check_network&nbsp;</a>&nbsp;
+<a href="#m_cmgl_value">&nbsp;cmgl_value&nbsp;</a>&nbsp;
+<a href="#m_communication_delay">&nbsp;communication_delay&nbsp;</a>&nbsp;
+<a href="#m_cs_convert">&nbsp;cs_convert&nbsp;</a>&nbsp;
+<a href="#m_decode_unicode_text">&nbsp;decode_unicode_text&nbsp;</a>&nbsp;
+<a href="#m_detect_message_routing">&nbsp;detect_message_routing&nbsp;</a>&nbsp;
+<a href="#m_detect_unexpected_input">&nbsp;detect_unexpected_input&nbsp;</a>&nbsp;
+<a href="#m_device">&nbsp;device&nbsp;</a>&nbsp;
+<a href="#m_device_open_alarm_after">&nbsp;device_open_alarm_after&nbsp;</a>&nbsp;
+<a href="#m_device_open_retries">&nbsp;device_open_retries&nbsp;</a>&nbsp;
+<a href="#m_eventhandler">&nbsp;eventhandler&nbsp;</a>&nbsp;
+<a href="#m_eventhandler_ussd">&nbsp;eventhandler_ussd&nbsp;</a>&nbsp;
+<a href="#m_hangup_incoming_call">&nbsp;hangup_incoming_call&nbsp;</a>&nbsp;
+<a href="#m_incoming">&nbsp;incoming&nbsp;</a>&nbsp;
+<a href="#m_init">&nbsp;init&nbsp;</a>&nbsp;
+<a href="#m_init2">&nbsp;init2&nbsp;</a>&nbsp;
+<a href="#m_internal_combine">&nbsp;internal_combine&nbsp;</a>&nbsp;
+<a href="#m_internal_combine_binary">&nbsp;internal_combine_binary&nbsp;</a>&nbsp;
+<a href="#m_keep_messages">&nbsp;keep_messages&nbsp;</a>&nbsp;
+<a href="#m_keep_open">&nbsp;keep_open&nbsp;</a>&nbsp;
+<a href="#m_logfile">&nbsp;logfile&nbsp;</a>&nbsp;
+<a href="#m_loglevel">&nbsp;loglevel&nbsp;</a>&nbsp;
+<a href="#m_max_continuous_sending">&nbsp;max_continuous_sending&nbsp;</a>&nbsp;
+<a href="#m_memory_start">&nbsp;memory_start&nbsp;</a>&nbsp;
+<a href="#m_message_count_clear">&nbsp;message_count_clear&nbsp;</a>&nbsp;
+<a href="#m_messageids">&nbsp;messageids&nbsp;</a>&nbsp;
+<a href="#m_message_limit">&nbsp;message_limit&nbsp;</a>&nbsp;
+<a href="#m_mode">&nbsp;mode&nbsp;</a>&nbsp;
+<a href="#m_modem_disabled">&nbsp;modem_disabled&nbsp;</a>&nbsp;
+<a href="#m_ms_purge_hours">&nbsp;ms_purge_hours&nbsp;</a>&nbsp;
+<a href="#m_ms_purge_monutes">&nbsp;ms_purge_minutes&nbsp;</a>&nbsp;
+<a href="#m_ms_purge_read">&nbsp;ms_purge_read&nbsp;</a>&nbsp;
+<a href="#m_needs_wakeup_at">&nbsp;needs_wakeup_at&nbsp;</a>&nbsp;
+<a href="#m_outgoing">&nbsp;outgoing&nbsp;</a>&nbsp;
+<a href="#m_pdu_from_file">&nbsp;pdu_from_file&nbsp;</a>&nbsp;
+<a href="#m_phonecalls">&nbsp;phonecalls&nbsp;</a>&nbsp;
+<a href="#m_phonecalls_error_max">&nbsp;phonecalls_error_max&nbsp;</a>&nbsp;
+<a href="#m_phonecalls_purge">&nbsp;phonecalls_purge&nbsp;</a>&nbsp;
+<a href="#m_pin">&nbsp;pin&nbsp;</a>&nbsp;
+<a href="#m_pinsleeptime">&nbsp;pinsleeptime&nbsp;</a>&nbsp;
+<a href="#m_pre_init">&nbsp;pre_init&nbsp;</a>&nbsp;
+<a href="#m_primary_memory">&nbsp;primary_memory&nbsp;</a>&nbsp;
+<a href="#m_priviledged_numbers">&nbsp;priviledged_numbers&nbsp;</a>&nbsp;
+<a href="#m_queues">&nbsp;queues&nbsp;</a>&nbsp;
+<a href="#m_read_timeout">&nbsp;read_timeout&nbsp;</a>&nbsp;
+<a href="#m_regular_run">&nbsp;regular_run&nbsp;</a>&nbsp;
+<a href="#m_regular_run_cmd">&nbsp;regular_run_cmd&nbsp;</a>&nbsp;
+<a href="#m_regular_run_cmdfile">&nbsp;regular_run_cmdfile&nbsp;</a>&nbsp;
+<a href="#m_regular_run_interval">&nbsp;regular_run_interval&nbsp;</a>&nbsp;
+<a href="#m_regular_run_logfile">&nbsp;regular_run_logfile&nbsp;</a>&nbsp;
+<a href="#m_regular_run_loglevel">&nbsp;regular_run_loglevel&nbsp;</a>&nbsp;
+<a href="#m_regular_run_post_run">&nbsp;regular_run_post_run&nbsp;</a>&nbsp;
+<a href="#m_regular_run_statfile">&nbsp;regular_run_statfile&nbsp;</a>&nbsp;
+<a href="#m_report">&nbsp;report&nbsp;</a>&nbsp;
+<a href="#m_report_device_details">&nbsp;report_device_details&nbsp;</a>&nbsp;
+<a href="#m_routed_status_report_cnma">&nbsp;routed_status_report_cnma&nbsp;</a>&nbsp;
+<a href="#m_rtscts">&nbsp;rtscts&nbsp;</a>&nbsp;
+<a href="#m_secondary_memory">&nbsp;secondary_memory&nbsp;</a>&nbsp;
+<a href="#m_secondary_memory_max">&nbsp;secondary_memory_max&nbsp;</a>&nbsp;
+<a href="#m_send_delay">&nbsp;send_delay&nbsp;</a>&nbsp;
+<a href="#m_send_handshake_select">&nbsp;send_handshake_select&nbsp;</a>&nbsp;
+<a href="#m_sending_disabled">&nbsp;sending_disabled&nbsp;</a>&nbsp;
+<a href="#m_smsc">&nbsp;smsc&nbsp;</a>&nbsp;
+<a href="#m_socket_connection_alarm_after">&nbsp;socket_connection_alarm_after&nbsp;</a>&nbsp;
+<a href="#m_socket_connection_errorsleeptime">&nbsp;socket_connection_errorsleeptime&nbsp;</a>&nbsp;
+<a href="#m_socket_connection_retries">&nbsp;socket_connection_retries&nbsp;</a>&nbsp;
+<a href="#m_start">&nbsp;start&nbsp;</a>&nbsp;
+<a href="#m_startsleeptime">&nbsp;startsleeptime&nbsp;</a>&nbsp;
+<a href="#m_status_include_counters">&nbsp;status_include_counters&nbsp;</a>&nbsp;
+<a href="#m_status_signal_quality">&nbsp;status_signal_quality&nbsp;</a>&nbsp;
+<a href="#m_stop">&nbsp;stop&nbsp;</a>&nbsp;
+<a href="#m_trust_spool">&nbsp;trust_spool&nbsp;</a>&nbsp;
+<a href="#m_unexpected_input_is_trouble">&nbsp;unexpected_input_is_trouble&nbsp;</a>&nbsp;
+<a href="#m_using_routed_status_report">&nbsp;using_routed_status_report&nbsp;</a>&nbsp;
+<a href="#m_ussd_convert">&nbsp;ussd_convert&nbsp;</a>&nbsp;
+<a href="#m_voicecall_cpas">&nbsp;voicecall_cpas&nbsp;</a>&nbsp;
+<a href="#m_voicecall_hangup_ath">&nbsp;voicecall_hangup_ath&nbsp;</a>&nbsp;
+<a href="#m_voicecall_ignore_modem_response">&nbsp;voicecall_ignore_modem_response&nbsp;</a>&nbsp;
+<a href="#m_voicecall_vts_list">&nbsp;voicecall_vts_list&nbsp;</a>&nbsp;
+<a href="#m_voicecall_vts_quotation_marks">&nbsp;voicecall_vts_quotation_marks&nbsp;</a>&nbsp;
+</span>
+
+</p>
+<hr>
+
+<p>
+The config file is /etc/smsd.conf. You may specify another file using the option -c. 
+During installation an easy example file will be copied to <b>smstools3/examples</b> directory.
+</p>
+<p>
+The config file has the following structure:
+</p>
+<p><ul>
+<table border=1 bgcolor=lightgrey><tr><TD>
+  <font face="Courier New, Courier, monospace">
+  <br>
+  &nbsp;<a href="#global">some global settings</a>&nbsp;<br>
+  <br>
+  &nbsp;<a href="#modem">[first modem name]</a>&nbsp;<br>
+  &nbsp;...&nbsp;<br>
+  &nbsp;<a href="#modem">[second modem name]</a>&nbsp;<br>
+  &nbsp;...&nbsp;<br>
+  &nbsp;<a href="#modem">[third modem name]</a>&nbsp;<br>
+  &nbsp;...&nbsp;<br>
+  &nbsp;and so on&nbsp;<br>
+  <br>
+  </font>
+</TD></tr></table>
+</ul>
+</p>
+<p>
+Configuring the <a href="configure2.html">provider-sorting</a> is shown in different document.
+</p>
+<p>
+In case of yes/no settings, you can use the following keywords:
+<p><ul><b>
+yes , no<br>
+true , false<br>
+on , off<br>
+1 , 0<br>
+</b></ul>
+</p>
+<p>
+After version >= 3.1 also "no" values should be typed correctly, "no" is no more a default.
+</p>
+<p>
+In case of lists, you need to use the comma character to separate items. Example: modem1, modem2, modem3
+</p>
+<p>
+After version >= 3.1 multiple different values can be defined for each setting.
+If smsd is started with command line argument -a (ask), settings with multiple choices are prompted and
+suitable value can be selected for a run. For example:<br>
+<ul><b>devices = ? GSM1 | GSM1, GSM2, GSM3 | GSM88, GMS99</b></ul>
+A question mark tells that more than one value is defined.
+Possible values are separated using pipe.
+In this example the smsd will prompt:<br>
+<ul><b>Value for "global devices" (Enter for the first value, 0 to exit):<br>
+1) GSM1<br>
+2) GSM1, GSM2, GSM3<br>
+3) GSM88, GMS99<br>
+4) Other<br>
+Select 1 to 4:<br>
+</b></ul>
+When smsd is started without -a, first value is always choosen.
+</p>
+<p>
+After version >= 3.1.5 only whole line comments are allowed. For example:<br>
+<i># This comment line is valid.</i><br>
+<i>devices = GSM1 # This kind of comment is invalid.</i><br>
+</p>
+<p>
+After version >= 3.1.5 default settings for all modems can be defined in the <b>[default]</b> section.
+If setup has large count of similar modems, almost all settings can be defined once in [default] section and only device depended
+settings like <i>device</i> are required to define in the modem sections.
+In the future versions this will replace all modem settings which are now defined in the global part of configuration.
+</p>
+<p>
+As "default" is now reserved name, it cannot be used as a modem name.
+</p>
+
+<p></p>
+
+<a name="global"><h3>Global part</h3></a>
+<p>
+The global part begins at the top of the config file.
+</p>
+
+<p>
+<i><b><a name="g_adminmessage_device">adminmessage_device</a> = name</b></i><br>
+<font size="1">Default value: first available modem.</font><br>
+Available from version >= 3.1.5.
+Defines which modem is used to send administrative messages from the mainspooler.
+This feature uses shared memory and works only if libmm is installed and statistics functionality is enabled.
+</p>
+
+<p>
+<i><b><a name="g_admin_to">admin_to</a> = phone number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1. Specifies a destination number for administrative messages created by smsd.
+Messages are sent without using the filesystem.
+</p>
+
+<p>
+<i><b><a name="g_alarmhandler">alarmhandler</a> = filename</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+You can specify here an external program that is started whenever an alarm occurs.
+<br>
+After version >= 3.1 a value can be defined as a word, like LOG_INFO, INFO or info.
+</p>
+
+<p>
+<i><b><a name="g_alarmlevel">alarmlevel</a> = number</b></i><br>
+<font size="1">Default value: <i>LOG_WARNING</i>.</font><br>
+Specifies what levels start an alarmhandler. You can use value between 2 and 5.
+</p>
+
+<p>
+<i><b><a name="g_autosplit">autosplit</a> = number</b></i><br>
+<font size="1">Default value: <i>3</i>.</font><br>
+Controls if and how the program splits large text messages.
+The program does not split text messages with UDH.<br>
+If splitting is disabled, binary messages requiring more than one part are not sent.<br>
+<table border=1 bgcolor=lightgrey>
+  <tr><td bgcolor=yellow valign=top>&nbsp;0&nbsp;</td><td>disabled</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;1&nbsp;</td><td>enabled, no part-number</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;2&nbsp;</td><td>enabled, text numbers</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;3&nbsp;</td><td>enabled, concatenated format (not supported by some phones)</td></tr>
+</table>
+</p>
+
+<p>
+<i><b><a name="g_blacklist">blacklist</a> = filename</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Name of the blacklist file.
+</p>
+
+<p>
+<i><b><a name="g_blockafter">blockafter</a> = number</b></i><br>
+<font size="1">Default value: <i>3</i>.</font><br>
+Available from version >= 3.0.9.
+A modem is blocked after n number of errors while <b>sending</b> messages.
+A successfull sending will reset this counter.
+</p>
+
+<p>
+<i><b><a name="g_blocktime">blocktime</a> = number</b></i><br>
+<font size="1">Default value: <i>3600</i>.</font><br>
+A modem is not used so many seconds when it seems to be out of order.
+</p>
+
+<p>
+<i><b><a name="g_checked">checked</a> = directory</b></i><br>
+<font size="1">Default value: <i>/var/spool/sms/checked</i>.</font><br>
+Path of the default Queue directory in case you do not use provider-sorting.
+</p>
+
+<p>
+<i><b><a name="g_checkhandler">checkhandler</a> = filename</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+External program that checks if a message file is valid.
+(This script can also be used to convert message file from UTF-8 to ISO format, which is internal format used in smsd.
+See scripts/checkhandler-utf-8 for sample code.)<br>
+After version >= 3.0.9 the smsd converts messages automatically from UTF-8 to ISO, if it is necessary.<br>
+If the checkhandler return a non-zero (other than 2) exitcode the message will not be sent.<br>
+With the smsd version >= 3.1 the checkhandler can also modify a message file.<br>
+Exitcode 2 means that the checkhandler has moved a message to the spooler by itself.
+</p>
+
+<p>
+<i><b><a name="g_date_filename">date_filename</a> = number</b></i><br>
+<font size="1">Default value: <i>0</i>.</font><br>
+Available from version >= 3.1.
+Defines if date is included to the filename of incoming message.
+With value 1 like 2007-09-02.GSM1.xxxxxx and with value 2 like GSM1.2007-09-02.xxxxxx.
+</p>
+
+<p>
+<i><b><a name="g_date_filename_format">date_filename_format</a> = format string</b></i><br>
+<font size="1">Default value: compatible with previous versions.</font><br>
+Available from version >= 3.1.7. Specifies a format for date string in filenames.
+See <i>man strftime</i> for usage details.
+</p>
+
+<p>
+<i><b><a name="g_datetime_format">datetime_format</a> = format string</b></i><br>
+<font size="1">Default value: compatible with previous versions.</font><br>
+Available from version >= 3.1. Specifies a format for timestamps.
+See <i>man strftime</i> for usage details.
+</p>
+<p>
+Before the version 3.1.7 a name for this setting was <i>datetime</i>.
+The old name can still be used because of backward compatibility.
+</p>
+
+<p>
+<i><b><a name="g_decode_unicode_text">decode_unicode_text</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.0. Controls when the incoming Unicode text is decoded internally.
+</p>
+
+<p>
+<i><b><a name="g_delaytime">delaytime</a> = number</b></i><br>
+<font size="1">Default value: <i>10</i>.</font><br>
+Smsd sleep so many seconds when it has nothing to do.
+</p>
+
+<p>
+<i><b><a name="g_delaytime_mainprocess">delaytime_mainprocess</a> = number</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+Available after >= 3.1.4.
+If this value is not set, <i>delaytime</i> setting is used in the main process.
+With this setting outgoing messages can be checked more frequently than incoming messages.
+</p>
+
+<p>
+<i><b><a name="g_devices">devices</a> = names</b></i><br>
+<font size="1">Default value: empty.</font><br>
+List of names of your modems, maximum 64 devices. This limit is changeable.
+</p>
+
+<p>
+<i><b><a name="g_errorsleeptime">errorsleeptime</a> = number</b></i><br>
+<font size="1">Default value: <i>10</i>.</font><br>
+A modem sleeps so many seconds when it answers a command with ERROR.
+</p>
+
+<p>
+<i><b><a name="g_eventhandler">eventhandler</a> = filename</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Specifies an external program or script that will execute whenever a message was sent, received or failed.<br>
+(If your locale is UTF-8, you can use this script to convert received messages from smsd's internal format (ISO) to UTF-8.
+See scripts/eventhandler-utf-8 for code sample.)<br>
+After version >= 3.0.9 there is <i>incoming_utf8 = yes</i> setting available.
+Using this setting the external conversion is not required.
+</p>
+
+<p>
+<i><b><a name="g_executable_check">executable_check</a> = yes/no</b></i><br>
+<font size="1">Default value: yes.</font><br>
+Available from version >= 3.1.1.
+This setting defines if all executables are checked during the startup check.
+Usually eventhanler, alarmhandler etc. are shell scripts or some other single files which can be executed and therefore checked simply.
+If using a settings like <i>eventhandler = /usr/local/bin/php -f /usr/local/bin/smsd_eventhandler.php</i>,
+the check will fail and smsd will not start unless <i>executable_check = no</i> is defined.
+</p>
+
+<p>
+<i><b><a name="g_failed">failed</a> = directory</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Path of the Failed Folder. Delete this line if you do not want to keep failed files.
+</p>
+
+<p>
+<i><b><a name="g_filename_preview">filename_preview</a> = number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1. Defines how many characters of message text is concatenated to the name of a messsage file.
+Characters used are a...z, A...Z, 0...9, - and period.
+All other characters are replaced with _'s.
+</p>
+
+<p>
+<i><b><a name="g_hangup_incoming_call">hangup_incoming_call</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.5.
+If set to <i>yes</i> and detected unexpected input contains "RING", incoming call is ended.
+Use modem setting <i>voicecall_hangup_ath</i> to define if "ATH" is used to make hangup instead of "AT+CHUP".
+</p>
+
+<p>
+<i><b><a name="g_ic_purge_hours">ic_purge_hours</a> = number</b></i><br>
+<font size="1">Default value: 24.</font><br>
+<i><b><a name="g_ic_purge_minutes">ic_purge_minutes</a> = number</b></i><br>
+<font size="1">Default value: 0.</font><br>
+<i><b><a name="g_ic_purge_read">ic_purge_read</a> = yes/no</b></i><br>
+<font size="1">Default value: yes.</font><br>
+<i><b><a name="g_ic_purge_interval">ic_purge_interval</a> = number</b></i><br>
+<font size="1">Default value: 30.</font><br>
+Available from version >= 3.1.5.
+These settings defines how concatenation storage is purged when <i>internal_combine</i> is used
+and messages with missing parts are received.
+Storage is checked every <i>ic_purge_interval</i> minutes.
+If there are message parts older than defined with <i>ic_purge_hours</i> and/or <i>ic_purge_minutes</i> settings,
+message parts are deleted. If <i>ic_purge_read</i> is <i>yes</i>, message is stored to the incoming folder.
+In this case there will be only one part in the file and a header <i>Incomplete: yes</i> indicates that message is broken.
+Value 0 for both <i>ic_purge_hours</i> and <i>ic_purge_minutes</i> disables this feature.
+</p>
+
+<p>
+<i><b><a name="g_ignore_exec_output">ignore_exec_output</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.7.
+Defines if an unexpected output from eventhanders is ignored.<br>
+Usually eventhandlers should not output anything.
+If there is some output, it usually means that some error has occurred.
+These errors are often problematic, because that output cannot be seen and error is therefore not notified.
+Smsd will print any output from the evenhandlers to the log file.
+This output can also be used for debugging purposes, but usually debugging should be done by running eventhandler manually.
+</p>
+
+<p>
+<i><b><a name="g_incoming">incoming</a> = directory</b></i><br>
+<font size="1">Default value: <i>/var/spool/sms/incoming</i>.</font><br>
+Path of the Incoming Folder.
+</p>
+
+<p>
+<i><b><a name="g_incoming_utf8">incoming_utf8</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.0.9. With this setting messages using ISO or GSM alphabet are stored using UTF-8 character set.
+</p>
+
+<p>
+<i><b><a name="g_internal_combine">internal_combine</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.0. Controls when the incoming multipart message is combined internally.
+</p>
+
+<p>
+<i><b><a name="g_internal_combine_binary">internal_combine_binary</a> = no</b></i><br>
+<font size="1">Default value: <i>internal_combine</i>.</font><br>
+Available from version >= 3.1.5. Controls when the incoming multipart binary message is not combined internally.
+</p>
+
+<p>
+<i><b><a name="g_international_prefixes">international_prefixes</a> = list of numbers</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1.5.
+See <a href="fileformat.html">SMS file</a> (Using Type Of Address selection) for details.
+</p>
+
+<p>
+<i><b><a name="g_keep_filename">keep_filename</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1. If this is set to no, an unique filename is created each time
+when a message file is moved from directory to another directory. This ensures that any previously sent message file
+is not overwritten, even if the original filename was the same. Also if an user has created filename with space
+character, this creates a new name without spaces and therefore spaces can't effect to operation of an eventhandler.
+</p>
+
+<p>
+<i><b><a name="g_keep_messages">keep_messages</a> = yes/no</b></i><br>
+<font size="1">Default value: no.</font><br>
+Available from version >= 3.1.5.
+This is for testing purposes. Smsd runs as usual but messages are not removed from the modem.
+After all messages are read, smsd will stop. Use this with one modem only.
+</p>
+
+<p>
+<i><b><a name="g_language_file">language_file</a> = filename</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1.
+Message files can be written using localized headers.
+See the <a href="localizing.html">localizing</a> for details.
+</p>
+
+<p>
+<i><b><a name="g_log_charconv">log_charconv</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.0.9.
+With this setting a details of character set conversions (outgoing UTF-8 to ISO conversion and incoming GSM/ISO to
+UTF-8 conversion) is printed to the log.
+If smsd is compiled using DEBUGMSG definition, details are also printed to the console.
+Logging feature can be useful if you have some troubles with characters and like to know what exactly happens inside the smsd.
+</p>
+
+<p>
+<i><b><a name="g_logfile">logfile</a> = filename</b></i><br>
+<font size="1">Default value: empty.</font><br>
+Name of the log file. Delete this line, if you want to use the syslog for logging.
+You can use "1" to write to the console (stdout).
+</p>
+<p>
+This setting can be overridden by the <i>-l</i> (ell) command line argument.
+</p>
+
+<p>
+<i><b><a name="g_loglevel">loglevel</a> = number/word</b></i><br>
+<font size="1">Default value: <i>4</i> for logfile, <i>7</i> for syslog.</font><br>
+Sets the verbosity of a log file.
+</p>
+<p>
+This affects also syslog.
+If you want all messages in syslog, you need to set it to "7" (or higher) here and "*" in the config file of syslog.
+If you want less messages, you can reduce it here or in the config file of syslog, both will work.
+<p>
+<table border=1 bgcolor=lightgrey>
+  <tr>
+    <td valign=top>debug</td><td bgcolor=yellow valign=top>&nbsp;7&nbsp;</td><td>All AT-Commands and modem answers and other detailed informations useful for debugging</td>
+  </tr>
+  <tr>
+    <td valign=top>info</td><td bgcolor=yellow valign=top>&nbsp;6&nbsp;</td><td>Information what is going on at the moment. Not detailled enough for debugging but maybe interesting.</td>
+  </tr>
+  <tr>
+    <td valign=top>notice</td><td bgcolor=yellow valign=top>&nbsp;5&nbsp;</td><td>Information when a message was received or sent and when something not normal happens but program
+still works fine (for example wrong destination number in SMS file).</td>
+  </tr>
+  <tr>
+    <td valign=top>warning</td><td bgcolor=yellow valign=top>&nbsp;4&nbsp;</td><td>Warning when the program has a problem sending a single short message.</td>
+  </tr>
+  <tr>
+    <td valign=top>error</td><td bgcolor=yellow valign=top>&nbsp;3&nbsp;</td><td>Error message when the program has temporary problem (for example modem answered with ERROR during
+initialization or a file can not be accessed).</td>
+  </tr>
+  <tr>
+    <td valign=top>critical</td><td bgcolor=yellow valign=top>&nbsp;2&nbsp;</td><td>Error message when the program has a permament problem (for example sending failed many times
+or wrong permissions to a queue).</td>
+  </tr>
+</table>
+The numbers in this table are taken from GNU/Linux. Probably all operating systems use the same numbers.
+</p>
+<p>
+After version >= 3.1 a value can be defined as a word, like LOG_INFO, INFO or info.
+</p>
+
+<p>
+<i><b><a name="g_log_read_from_modem">log_read_from_modem</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.9.
+In some cases, when resolving troubles with a modem, it's useful to see exact data which is received from the modem.
+This setting is similar than <i>log_unmodified</i>, but displays the data as a hexadecimal dump.</i>
+</p>
+
+<p>
+<i><b><a name="g_log_single_lines">log_single_lines</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.
+Defines if linefeeds are removed from the modem response.
+</p>
+
+<p>
+<i><b><a name="g_logtime_format">logtime_format</a> = format string</b></i><br>
+<font size="1">Default value: compatible with previous versions.</font><br>
+Available from version >= 3.1.7. Specifies a format for date string logging.
+See <i>man strftime</i> for usage details.
+</p>
+
+<p>
+<i><b><a name="g_log_unmodified">log_unmodified</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.7.
+In some cases, when resolving troubles with a modem, it's useful to see what kind of line ends were received from the modem.
+With this setting spaces and line ends are not removed from the string which is logged.
+This setting overrides the setting <i>log_single_lines</i>.
+</p>
+
+<p>
+<i><b><a name="g_max_continuous_sending">max_continuous_sending</a> = number</b></i><br>
+<font size="1">Default value: <i>300 (5 min)</i>.</font><br>
+Available from version >= 3.1.5.
+This setting is in seconds and defines how long modem can send messages without doing anything else.
+After <i>max_continuous_sending</i> time is reached, received messages are checked and other tasks are run.
+</p>
+
+<p>
+<i><b><a name="g_national_prefixes">national_prefixes</a> = list of numbers</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1.5.
+See <a href="fileformat.html">SMS file</a> (Using Type Of Address selection) for details.
+</p>
+
+<p>
+<i><b><a name="g_os_cygwin">os_cygwin</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.0.10.
+Defines if smsd is running on Cygwin environment.
+This is needed if outgoing file permissions should be checked and changed by the smsd.
+</p>
+
+<p>
+<i><b><a name="g_outgoing">outgoing</a> = directory</b></i><br>
+<font size="1">Default value: <i>/var/spool/sms/outgoing</i>.</font><br>
+Path of the Outgoing Queue folder.
+</p>
+
+<p>
+<i><b><a name="g_phonecalls">phonecalls</a> = directory</b></i><br>
+<font size="1">Default value: empty, incoming directory is used.</font><br>
+Available from version >= 3.1. Defines where <i>phonecalls</i> data is stored.
+</p>
+
+<p>
+<i><b><a name="g_priviledged_numbers">priviledged_numbers</a> = list of numbers</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1.5.
+This list can be used with <i>check_memory_method</i> values 31, 41, and 5.
+Global list is default for each modem.
+List can be comma separated list of numbers or their parts starting from the left.
+Maximum 25 priviledged numbers can be defined.
+When messages are received, messages from priviledged numbers are handled first.
+First number in the list has highest priority.
+</p>
+
+<p>
+<i><b><a name="g_receive_before_send">receive_before_send</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Forces smsd to empty the first SIM card memory before sending SM.
+This is a workaround for modems that cannot send SM with a full SIM card.
+</p>
+
+<p>
+<i><b><a name="g_regular_run">regular_run</a> = filename</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+<i><b><a name="g_regular_run_interval">regular_run_interval</a> = number</b></i><br>
+<font size="1">Default value: <i>300</i>.</font><br>
+Available from version >= 3.1. A regular_run is an external script or program which is run regularly while the smsd is running.
+A value regular_run_interval describes number of seconds between each run.<br>
+See <a href="run.html">Running</a> for more information and sample usage.
+</p>
+
+<p>
+<i><b><a name="g_report">report</a> = directory</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1.
+Path of the Report Folder.
+Without this setting status report messages are stored to the Incoming Folder.
+</p>
+
+<p>
+<i><b><a name="g_saved">saved</a> = directory</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1. Path of the Saved Folder.
+If defined, smsd will store concatenation storage's to this directory (otherwise incoming directory is used).
+At startup check existing concatenation storages are moved from incoming directory to saved directory.
+Zero sized files are ignored.
+If both directories has a storage file with data, fatal error is produced and the smsd does not start.
+</p>
+
+<p>
+<i><b><a name="g_sent">sent</a> = directory</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Path of the Sent Folder. Delete this line, if you do not want to keep copies of each sent message file.
+</p>
+
+<p>
+<i><b><a name="g_shell">shell</a> = filename</b></i><br>
+<font size="1">Default value: /bin/sh</font><br>
+Available from version >= 3.1.5.
+Defines which shell is used to run eventhandler and other external scripts.
+</p>
+
+<p>
+<i><b><a name="g_smart_logging">smart_logging</a> = yes/no</b></i>.<br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.5.
+This feature is available when file based logging is used.
+If <i>loglevel</i> is less than 7 (for example "notice" is a good choise with smart_logging),
+trouble log (with loglevel 7) about whole communication is written to different file if there has been any errors.
+</p>
+<p>
+"Whole communication" means sending single SMS, receiving single SMS, and other things what smsd will do after idle time is spent.
+When communication starts, all possible log lines are collected to internal buffer and only <i>loglevel</i> lines are written to the <i>logfile</i>.
+If during communication there are any errors, all collected lines are printed to trouble log when communication reaches it's end.
+</p>
+<p>
+This feature was made because with loglevel 7 logfile grows very much and fast, and debug level is not usually needed when there was no any errors.
+In case of errors it's important to see whole communication, not just a single line which says that "error happened".
+</p>
+<p>
+File name is created with the rule: if lenght of <i>logfile</i> setting is more than 4 characters and setting ends with ".log",
+trouble log filename will end with "_trouble.log".
+If length is less than 4 or setting does not end with ".log", trouble log filename is <i>logfile</i> appended with ".trouble".
+In usual cases <i>logfile</i> is <b>/var/log/smsd.log</b> and trouble log filename will be <b>/var/log/smsd_trouble.log</b>,
+or in some (Debian, Ubuntu, ...) distributions: <b>/var/log/smstools/smsd.log</b> and <b>/var/log/smstools/smsd_trouble.log</b>.
+</p>
+
+<p>
+<i><b><a name="g_stats">stats</a> = directory</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Specifies the directory where smsd stores statistic files.
+The directoy must exist before you start smsd.
+If not given, then the program does not write statistic files.
+After version >= 3.1.1 message counter files are stored to this directory even if smsd is compiled without statistics enabled.
+</p>
+
+<p>
+<i><b><a name="g_stats_interval">stats_interval</a> = number</b></i><br>
+<font size="1">Default value: <i>3600</i>.</font><br>
+Smsd writes statistics files every n seconds.
+Value 0 disables statistics but counters are still updated if stats directory is defined.
+</p>
+
+<p>
+<i><b><a name="g_stats_no_zeroes">stats_no_zeroes</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Smsd does not write statistic files when no message was sent or received (Zero-Counters) if this is set to yes.
+</p>
+
+<p>
+<i><b><a name="g_status_include_counters">status_include_counters</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+<i><b><a name="g_status_signal_quality">status_signal_quality</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.5.
+These settings define if message counters and explained signal quality is included in the line of <i>status</i> file.
+</p>
+
+<p>
+<i><b><a name="g_status_interval">status_interval</a> = number</b></i>.<br>
+<font size="1">Default value: <i>1</i>.</font><br>
+Available from version >= 3.1.5.
+If statistics function is enabled and <i>stats</i> directory is defined, smsd writes file named <b><i>status</i></b> into this directory.
+The file contains status of all modems in the first line using <i>Status:</i> header (this is similar than smsd -s outputs to console) and
+explained status in the next lines using modem's name as a header.
+Smsd writes status file every <i>status_interval</i> seconds if a status has changed. Value 0 disables this feature.
+</p>
+<p>
+For example, the output is like:
+<pre>
+Status:      09-05-27 20:46:17,  irir------------
+SONERA:      09-05-27 20:46:09,  Idle,       123,  0,  321,  ssi: -63 dBm, ber: &lt; 0.2 %
+ELISA:       09-05-27 20:46:12,  Receiving,  234,  0,  432,  ssi: -73 dBm, ber: &lt; 0.2 %
+DNA:         09-05-27 20:46:06,  Idle,       456,  0,  543,  ssi: -77 dBm, ber: &lt; 0.2 %
+SAUNALAHTI:  09-05-27 20:46:14,  Receiving,  678,  0,  654,  ssi: -69 dBm, ber: &lt; 0.2 %
+</pre>
+Timestamp value tells when status is created or modem initialization was last started.
+</p>
+<p>
+Status can be: (s) Sending, (r) Receiving, (i) Idle, (b) Blocked, (t) Trouble, (-) Unknown.
+Trouble -status means that something abnormal has happened and if smart_logging is in use, trouble log will be written.
+</p>
+<p>
+Counters are: sent, failed, received.
+Sent counter is the value from <i>stats/&lt;modemname&gt;.counter</i> file. Smsd does not clear this value.
+Failed and received counters are from original statistics data and they are cleared each time when stats are stored (<i>stats_interval</i>), or smsd is restarted.
+</p>
+
+<p>
+<i><b><a name="g_store_original_filename">store_original_filename</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1. Together with keep_filename this controls when the original
+filename is stored to message file when it's moved from outgoing directory to the spool.
+</p>
+
+<p>
+<i><b><a name="g_store_received_pdu">store_received_pdu</a> = number</b></i><br>
+<font size="1">Default value: <i>1</i>.</font><br>
+Available from version >= 3.0. Controls when the incoming PDU string(s) is stored to message file.
+<table border=1 bgcolor=lightgrey>
+  <tr><td bgcolor=yellow valign=top>&nbsp;0&nbsp;</td><td>no PDU's are stored</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;1&nbsp;</td><td>unsupported PDU's are stored</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;2&nbsp;</td><td>unsupported and PDU's with 8bit binary data or Unicode text are stored</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;3&nbsp;</td><td>all PDU's are stored</td></tr>
+</table>
+Header is "PDU: " and PDU's of a multipart message are stored from 1 to n order.
+</p>
+
+<p>
+<i><b><a name="g_store_sent_pdu">store_sent_pdu</a> = number</b></i><br>
+<font size="1">Default value: <i>1</i>.</font><br>
+Available from version >= 3.0.9. Controls when the outgoing PDU string(s) is stored to message file.
+<table border=1 bgcolor=lightgrey>
+  <tr><td bgcolor=yellow valign=top>&nbsp;0&nbsp;</td><td>no PDU's are stored</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;1&nbsp;</td><td>failed (to send) PDU's are stored</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;2&nbsp;</td><td>failed and PDU's with 8bit binary data or Unicode text are stored</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;3&nbsp;</td><td>all PDU's are stored</td></tr>
+</table>
+Header is "PDU: " and PDU's of a multipart message are stored from 1 to n order.
+</p>
+
+<p>
+<i><b><a name="g_suspend">suspend</a> = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+Available from version >= 3.1.7.
+With this file, any modem process can be suspended.
+When a process is suspended, the modem port is closed and modem process does not do anything.
+</p><p>
+The file is checked before smsd starts sending or receiving.
+If a name of the device is found from the file, suspend will start.
+The format of a line in file is: <b>&lt;devicename&gt;: &lt;reason&gt;</b>.
+Colon is needed, but the &lt;reason&gt; is optional.
+It is printed to the log.
+A special line <b>ALL: &lt;reason&gt;</b> can also be used, and this affects for all modem processes.
+</p><p>
+When a process is suspended, the file is checked every ten seconds, or more frequently if the <i>delaytime</i> value is smaller.
+</p><p>
+When a process is suspended, it listens a signal SIGUSR2.
+If this signal is received, modem process will send and receive messages <u>once</u>.
+</p>
+
+<p>
+<i><b><a name="g_terminal">terminal</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1. Enables terminal mode like command line argument <i>-t</i>.
+</p>
+
+<p>
+<i><b><a name="g_trim_text">trim_text</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.7.
+With this setting trailing whitespaces are removed from the outgoing message.
+Does not effect with messages written using Unicode or GSM alphabet.
+</p>
+<p>
+After version >= 3.1.9, if the message is going blank, the removal is not done.
+This is because some people, really, need to send a message which contains only single space character.
+</p>
+
+<p>
+<i><b><a name="g_umask">umask</a> = value</b></i><br>
+<font size="1">Default value: <i>empty</i>.</font><br>
+Available from version >= 3.1.7.
+Effective umask for smsd can be set in the configuration file.
+Value can be hexadecimal, decimal or octal format.
+</p>
+
+<p>
+Next four settings are available from version >= 3.0.2:<br>
+<i><b><a name="g_user">user</a> = username</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+<i><b><a name="g_group">group</a> = groupname</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+<br>
+If the smsd is started by the root, these two settings can be used to switch smsd to run as an unpriviledged user.<br>
+As of version >= 3.0.9, if <i>user</i> is set but <i>group</i> is unset, that user's normal groups (e.g. from
+/etc/groups) are used.
+This means you can allow other users on the system access to write messages to the outgoing spool without giving them
+direct access to the serial port.<br>
+<br>
+<i><b><a name="g_infofile">infofile</a> = filename</b></i><br>
+<font size="1">Default value: <i>/var/run/smsd.working</i>.</font><br>
+<i><b><a name="g_pidfile">pidfile</a> = filename</b></i><br>
+<font size="1">Default value: <i>/var/run/smsd.pid</i>.</font><br>
+<br>
+Location of <i>infofile</i> and <i>pidfile</i> can be changed with these settings.
+This is usually necessary if the smsd is running as an unpriviledged user.
+If a sms3 script is used to start and stop the smsd, these settings should be defined in the script.
+<br>
+These four settings can be overridden by the command line argument(s):
+<ul>
+  <li>-ix set infofile to x</li>
+  <li>-px set pidfile to x</li>
+  <li>-ux set username to x</li>
+  <li>-gx set groupname to x</li>
+</ul>
+See <a href="run.html">Running</a> for more information.
+</p>
+
+<p>
+<i><b><a name="g_validity">validity</a> = number</b></i><br>
+<font size="1">Default value: <i>255</i>.</font><br>
+Available from version >= 3.0. See <a href="fileformat.html">SMS file</a> for details of possible values.
+</p>
+
+<p>
+<i><b><a name="g_voicecall_hangup_ath">voicecall_hangup_ath</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.5.
+Defines if <b>ATH</b> is used to hangup call instead of <b>AT+CHUP</b>.
+</p>
+
+<p>
+<i><b><a name="g_whitelist">whitelist</a> = filename</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Name of the whitelist file. The black list takes precedence before the white list.
+See <a href="blacklist.html">Blacklist and Whitelist</a> for more details and sample usage.
+</p>
+
+<br>
+
+<a name="modem"><h3>Modem settings</h3></a>
+
+<p>
+<b>[modem name]</b><br>
+Begin of a modem settings block. The modem name must be the same as in the devices= line in the global part.
+<br><b>NOTE for Cygwin users:</b> Do not use a device name, like COM1, as a modem name.
+While a message is received, a file starting with this name is created and Windows handles it as a device.
+This will cause a modem process to be freezed.
+</p>
+<p>
+<i><b><a name="m_adminmessage_limit">adminmessage_limit</a> = number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+<i><b><a name="m_adminmessage_count_clear">adminmessage_count_clear</a> = number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1.5.
+Adminmessage_limit specifies the maximum number of administrative messages to send.
+After this limit is reached, no more administrative messages will be sent until the smsd is restarted or message counter
+is cleared by the adminmessage_count_clear setting. The value of this setting is minutes.
+</p>
+
+<p>
+<i><b><a name="m_admin_to">admin_to</a> = phone number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1. Specifies a destination number for administrative messages created by smsd.
+This setting overrides the setting in the global part.
+</p>
+
+<p>
+<i><b><a name="m_baudrate">baudrate</a> = number</b></i><br>
+<font size="1">Default value: <i>115200</i>.</font><br>
+Specifies the speed of the serial communication in bits per second.
+Most modems including old devices work well with 115200.
+If this speed is not supported by the system, 19200 is used.
+Some very old devices may need lower speed like 9600 baud.
+</p>
+
+<p>
+<i><b><a name="m_check_memory_method">check_memory_method</a> = number</b></i><br>
+<font size="1">Default value: <i>1</i>.</font><br>
+Available from version >= 3.1.5.
+Defines how incoming messages are checked:<br>
+<table border=1 bgcolor=lightgrey>
+  <tr><td bgcolor=yellow valign=top>&nbsp;0&nbsp;</td><td>CPMS is not supported. Default values are used for <i>used_memory</i> and <i>max_memory</i>.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;1&nbsp;</td><td>CPMS is supported and must work. In case of failure incoming messages are not read.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;2&nbsp;</td><td>CMGD is used to check messages. Some devices does not support this.
+  <p>To see if this is supported, check the answer for <b>AT+CMGD=?</b> command. Answers like:<br>
+<i>+CMGD: (1,2,3),(0-4)<br>
+OK<br></i>
+= is supported, there are messages number 1, 2 and 3 in the memory.<br>
+<br>
+<i>+CMGD: (),(0-4)<br>
+OK<br></i>
+= is supported, no messages in the memory.<br>
+<br>
+<i>+CMGD: (1-30)<br>
+OK<br></i>
+= is not supported, a modem does not give message numbers even if there is messsages available.
+  </p>
+  </td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;3&nbsp;</td><td>CMGL is used to check messages. Message is deleted after it is read.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;4&nbsp;</td><td>CMGL is used to check messages. Messages are deleted after all messages are read.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;31&nbsp;</td><td>CMGL is used to check messages. Message is deleted after it is read.<br>
+CMGL data is checked and PDU is taken directly from the list.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;41&nbsp;</td><td>CMGL is used to check messages. Messages are deleted after all messages are read.<br>
+CMGL data is checked and PDU is taken directly from the list.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;5&nbsp;</td><td>CMGL is used to check messages. Messages are deleted after all messages are read.<br>
+CMGL data is checked and PDU is taken directly from the list.<br>
+Multipart message is handled after all of it's parts are available. After multipart message is handled,<br>
+only the first part is deleted by the smsd. The modem will delete rest of parts by itself. This is SIMCOM SIM600 compatible.
+  </td></tr>
+</table>
+</p>
+<p>
+NOTE: Some devices are incompatible with CMGL method.<br>
+NOTE: With values 31, 41 and 5 <i>priviledged_numbers</i> sorting can be used.
+</p>
+
+<p>
+<i><b><a name="m_check_network">check_network</a> = value</b></i><br>
+<font size="1">Default value: <i>1</i>.</font><br>
+Available from version >= 3.1, enhanced in version 3.1.5.
+Defines how network registration is checked:
+<table border=1 bgcolor=lightgrey>
+  <tr><td bgcolor=yellow valign=top>&nbsp;0<br>&nbsp;no&nbsp;</td><td>Network registration is not checked.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;1<br>&nbsp;yes&nbsp;</td><td>Network registration is always checked</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;2&nbsp;</td><td>Network registration is checked only when preparing to send messages.</td></tr>
+</table>
+<p>
+If a modem does not support network checking, checking is automatically ignored.<br>
+With value 2 incoming messages are processed faster.
+</p>
+
+<p>
+<i><b><a name="m_cmgl_value">cmgl_value</a> = string</b></i><br>
+<font size="1">Default value: <i>4</i>.</font><br>
+Available from version >= 3.1.5.
+If <i>check_memory_method = 3, 4, 31, 41 or 5</i> is used, correct value for AT+CMGL= command must be defined. This value depends on the modem.
+</p>
+
+<p>
+<i><b><a name="m_communication_delay">communication_delay</a> = number</b></i><br>
+<font size="1">Default value: <i>0</i>.</font><br>
+Available from version >= 3.1.5.
+Only some very problematic modems may need this setting.
+Defines minimum time in milliseconds between latest answer from modem and next command which will be sent to modem.
+</p>
+
+<p>
+<i><b><a name="m_cs_convert">cs_convert</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+The program converts normal text messages into GSM character set. You need this to display
+german umlauts and control characters correctly.
+</p>
+
+<p>
+<i><b><a name="m_decode_unicode_text">decode_unicode_text</a> = yes/no</b></i><br>
+<font size="1">Default value: use the global part setting.</font><br>
+Available from version >= 3.0. Specifies an internal Unicode decoding like in the global part.
+</p>
+
+<p>
+<i><b><a name="m_detect_message_routing">detect_message_routing</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.5.
+By default smsd tries to detect if a modem is in message routing mode.
+Before sending a command smsd listens if some data with routed message is available.
+Also, after a command is sent, smsd checks the answer.
+In both cases, if there is one or more routed message coming, a notification is written to the log and alarmhandler is called.
+Routed messages are saved and handled later when smsd can do it.
+</p>
+<p>
+NOTE: This checking is done to avoid errors and loss of messages.
+Routing mode SHOULD NOT BE USED in normal operation.
+With routing mode it is NOT quaranteed that all messages are delivered.
+Some devices are in routing mode by default and this feature helps to detect it.
+Use <i>init = AT+CNMI=...</i> with suitable values to disable routing mode.
+Values depend on modem, see the manual of a modem for details.
+All received messages must be stored to the message store which is usually "SM" (SIM card memory).
+</p>
+
+<p>
+<i><b><a name="m_detect_unexpected_input">detect_unexpected_input</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.5.
+Before any command is sent to the modem, smsd checks if there is some unexpected input.
+For example some modem may send new message identification (CMTI) if settings are incorrect.
+Any unexpected input will be logged.
+</p>
+
+<p>
+<i><b><a name="m_device">device</a> = name of serial port / definition of internet host</b></i><br>
+<font size="1">Default value: empty.</font><br>
+Specifies the device name of the serial port or internet host to the modem.
+GNU/Linux example: /dev/ttyS0. Windows example: /dev/com1 or /dev/ttyS0. Solaris example: /dev/cuaa. Network modem example: @10.1.1.1:5000.
+<br><br>
+After version >= 3.1.7 this setting can define a socket if starting with character @.
+Format for the internet host is: <i>@&lt;host_or_ip&gt;:&lt;port&gt;</i>.
+Host definition can be name or IP address.
+</p>
+
+<p>
+<i><b><a name="m_device_open_alarm_after">device_open_alarm_after</a> = number</b></i><br>
+<font size="1">Default value: <i>0</i>.</font><br>
+Available from version >= 3.1.7.
+After defined number of retries, an alarmhandler is called.
+Smsd still continues trying, if <i>device_open_retries</i> value is bigger.
+</p>
+
+<p>
+<i><b><a name="m_device_open_retries">device_open_retries</a> = number</b></i><br>
+<font size="1">Default value: <i>1</i>.</font><br>
+Available from version >= 3.1.7.
+Defines how many times smsd will retry when cannot open a device.
+When maximum number of retries is reached, modem process will call alarmhandler and stop.
+With value -1 smsd will retry forever.
+</p>
+
+
+<p>
+<i><b><a name="m_eventhandler">eventhandler</a> = filename</b></i><br>
+<font size="1">Default value: empty.</font><br>
+Specifies an eventhandler script like in the global part.
+If you use this variable, then this modem will use its own individual eventhandler instead of the global one.
+</p>
+
+<p>
+<i><b><a name="m_eventhandler_ussd">eventhandler_ussd</a> = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+Available from version >= 3.1.7.
+This setting defines an eventhandler to use with USSD messages.
+It is possible to use the same script or program which is used as <i>eventhandler</i>,
+but it's not a default because basically those scripts are not compatible without modifications.
+<br><br>
+After an USSD message is received, and probably <i>ussd_convert</i> is done, eventhandler_ussd is called.
+Smsd checks what is the current character set of a modem and creates a temporary file which contains the USSD answer.
+Arguments for the eventhandler_ussd are:<br>
+<table border=1 bgcolor=lightgrey>
+  <tr><td bgcolor=yellow valign=top>&nbsp;$1&nbsp;</td><td>"USSD" keyword.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;$2&nbsp;</td><td>Filename (which contains the answer).</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;$3&nbsp;</td><td>Devicename.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;$4&nbsp;</td><td>Character set.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;$5&nbsp;</td><td>Command what was used to get the USSD answer.</td></tr>
+</table>
+<p>
+Eventhandler_ussd can do whatever is needed with the USSD answer.
+It can also modify the answer, or delete the file.
+After eventhandler_ussd returns, smsd will check if the file still exists.
+If it exists, it's first line is taken as a new answer.
+Modified answer is then logged and probably printed to the regular_run_statfile.
+</p>
+</p>
+
+<p>
+<i><b><a name="m_hangup_incoming_call">hangup_incoming_call</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.5.
+If set to <i>yes</i> and detected unexpected input contains "RING", incoming call is ended.
+Use modem setting <i>voicecall_hangup_ath</i> to define if "ATH" is used to make hangup instead of "AT+CHUP".
+This setting overrides global setting.
+</p>
+
+<p>
+<i><b><a name="m_incoming">incoming</a> = no/yes/high or 0/1/2</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Specifies if the program should read incoming SM from this modem.
+"Yes" or "1" means that smsd receives with less priority.
+The value "high" or "2" means that smsd receives with high priority.
+"No" or "0" means that smsd does not receive messages.
+</p>
+
+<p>
+<i><b><a name="m_init">init</a> = modem command</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Specifies a modem initialisation command. Most modems do not need any init string.
+See the manual of your modem for more details of modem commands.
+</p>
+
+<p>
+<i><b><a name="m_init2">init2</a> = modem command</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Specifies a second modem initialisation command. Most users do not need this.
+</p>
+
+<p>
+<i><b><a name="m_internal_combine">internal_combine</a> = yes/no</b></i><br>
+<font size="1">Default value: use the global part setting.</font><br>
+Available from version >= 3.0. Specifies an internal multipart message combining like in the global part.
+</p>
+
+<p>
+<i><b><a name="m_internal_combine_binary">internal_combine_binary</a> = no</b></i><br>
+<font size="1">Default value: use the global part setting.</font><br>
+Available from version >= 3.1.5. Specifies an internal multipart binary message combining like in the global part.
+</p>
+
+<p>
+<i><b><a name="m_keep_messages">keep_messages</a> = yes/no</b></i><br>
+<font size="1">Default value: no.</font><br>
+Available from version >= 3.1.7.
+Defines if messages are not deleted from the device.
+Unlike a global setting <i>keep_messages</i>, smsd continues running.
+</p>
+
+<p>
+<i><b><a name="m_keep_open">keep_open</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.
+If this is changed to <i>no</i>, a modem is closed while it's not used.
+</p>
+
+<p>
+<i><b><a name="m_logfile">logfile</a> = filename</b></i><br>
+<font size="1">Default value: <i>empty, using a global log file</i>.</font><br>
+Available from version >= 3.1.
+Defines a log file if a global log is not used.
+</p>
+
+<p>
+<i><b><a name="m_loglevel">loglevel</a> = number/word</b></i><br>
+<font size="1">Default value: <i>same as in the global setting</i>.</font><br>
+Available from version >= 3.1.
+Sets the verbosity of a log file.
+See more details in the global part.
+</p>
+
+<p>
+<i><b><a name="m_max_continuous_sending">max_continuous_sending</a> = number</b></i><br>
+<font size="1">Default value: <i>300 (5 min)</i>.</font><br>
+Available from version >= 3.1.5.
+This setting is in seconds and defines how long modem can send messages without doing anything else.
+After <i>max_continuous_sending</i> time is reached, received messages are checked and other tasks are run.
+This setting overrides global setting.
+</p>
+
+<p>
+<i><b><a name="m_memory_start">memory_start</a> = number</b></i><br>
+<font size="1">Default value: <i>1</i>.</font><br>
+Tells the first memory space number for received messages.
+This is normally 1, Vodafone Mobile Connect Card starts with 0.
+</p>
+
+<p>
+<i><b><a name="m_messageids">messageids</a> = number</b></i><br>
+<font size="1">Default value: <i>2</i>.</font><br>
+Available from version >= 3.1.1.
+Defines how message id's are stored: 1 = first, 2 = last, 3 = all.
+When all id's are stored, numbers are delimited whith space and there is one space and dot in the end of string.
+</p>
+
+<p>
+<i><b><a name="m_message_limit">message_limit</a> = number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+<i><b><a name="m_message_count_clear">message_count_clear</a> = number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1. Message_limit specifies the maximum number of messages to send.
+After this limit is reached, no more messages will be sent until the smsd is restarted or message counter
+is cleared by the message_count_clear setting. The value of this setting is minutes.<br>
+If <i>admin_to</i> is specified, an administrative message is sent when the limit is reached.
+</p>
+
+<p>
+<i><b><a name="m_mode">mode</a> = old/new</b></i><br>
+<font size="1">Default value: <i>new</i>.</font><br>
+Specifies version of modem command set.
+Almost everybody needs to use this as a "new".
+<p>
+From version >= 3.0.9 this effects mainly to the sending side. In the receiving side the incoming PDU is checked,
+and if it does not match to the selected mode, another mode is tried automatically.
+<p>
+<table border=1 bgcolor=lightgrey>
+<tr><TD bgcolor=yellow valign=top>&nbsp;old&nbsp;</TD>
+<td>For Falcom A1 and maybe some other old modems of GSM phase 1 (1990-1995).<br>
+In the receiving side this mode <b>does not have SCA</b> information in the begin of PDU.
+</td></tr>
+<tr><TD bgcolor=yellow valign=top>&nbsp;new&nbsp;</TD>
+<td>For nearly all mobile phones and modems.<br>
+In the receiving side this mode <b>has SCA</b> information in the begin of PDU.
+</td></tr>
+</table>
+(SCA stands for Service Centre Address).
+</p>
+
+<p>
+<i><b><a name="m_modem_disabled">modem_disabled</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.0.9. This is for testing purposes too.<br>
+Whole messaging system including eventhandlers etc. can be tested without any working
+modem existing. Sending of messages is simulated in the similar way than with <i>sending_disabled</i> setting.
+Incoming messages are taken only from the file, if <i>pdu_from_file</i> is defined.
+No any communication is made between smsd and modem, but a device setting should still exist because smsd wants to
+open and close a device.
+If in you testing environment you do not have a priviledges to the usual modem device,
+like /dev/ttyS0, you can use a definition like <i>device = /tmp/modemfile</i>.
+If this file exists and is writable for the process owner, it's enough for smsd.
+</p>
+
+<p>
+<i><b><a name="m_ms_purge_hours">ms_purge_hours</a> = number</b></i><br>
+<font size="1">Default value: 6.</font><br>
+<i><b><a name="m_ms_purge_monutes">ms_purge_minutes</a> = number</b></i><br>
+<font size="1">Default value: 0.</font><br>
+<i><b><a name="m_ms_purge_read">ms_purge_read</a> = yes/no</b></i><br>
+<font size="1">Default value: yes.</font><br>
+Available from version >= 3.1.5.
+These settings are used only with SIM600 (or compatible) modems (<i>check_memory_method</i> 5).
+If multipart message is received with one or more parts missing, incomplete message is removed from the message storage after time defined.
+Time is calculated from the timestamp of the first available part.
+Value 0 for both settings disables this feature.
+Setting <i>ms_purge_read</i> defines if parts are read before they are deleted.
+If <i>internal_combine</i> setting is used, parts are stored to the concatenation storage.
+If missing part(s) are later received, there will be similar timeout before parts are purged.
+After this the messsage is complete and is stored to the incoming folder.
+See also global settings <i>ic_purge_*</i>.
+</p>
+
+<p>
+<i><b><a name="m_needs_wakeup_at">needs_wakeup_at</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.7.
+After being idle, some modems do not answer to the first AT command.
+For example with BenQ M32, there can be OK answer, but in many times there is not.
+To avoid error messages, smsd first send AT and read the answer if it's available.
+</p>
+
+<p>
+<i><b><a name="m_smsc">smsc</a> = number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Specifies the SMSC number that this modem should use to send SM.
+You need this setting only if the default of the SIM card is bad.
+Write the phone number of the SMSC in <u><b>international format</b></u> without the starting "+".
+</p>
+
+<p>
+<i><b><a name="m_outgoing">outgoing</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.0.9.
+Specifies if a modem is used to handle and send outgoing messages.
+</p>
+
+<p>
+<i><b><a name="m_pdu_from_file">pdu_from_file</a> = filename / directoryname/</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.0. This is for testing purposes.<br>
+You can test you eventhandler and some other things without actually receiving a message from the modem/phone.
+This is especially important when it's not possible to receive the same message again because the sender cannot be reached.<br>
+You may have the original PDU string stored to the incoming messsage file, or you may see it in log file (depending of the loglevel).
+This PDU string can be stored to the <i>pdu_from_file</i> named file, and when this file exists the smsd will read the PDU from there.
+Rest processing will be done similarry than with normally received messsages and you can then debug possible problems
+and see when they are fixed.<br>
+This file can contain empty lines and comment lines starting with # character.<br>
+Actual data can be stored as one line containing the PDU string, or two lines containing (first) the modem answer
+and (second) the PDU string.<br>
+For example:<br>
+<font size="1">#2006-09-13 13:12:10,7, GSM1: &lt;- <br>
++CMGR: 0,,40<br>
+0791531811111111240C9153183254769800F1609031314174211854747A0E4ACF416110BD3CA783DAE5F93C7C2EBB14</font><br>
+or simply one line only:<br>
+<font size="1">079153181111111106BC0C91531832547698609031314174216090313141842100</font><br>
+<br>
+<b>NOTE:</b> After this file is processed, it is <b>removed</b>.
+<br>
+After >= 3.0.9 the setting can be a directory.<br>
+If this setting ends with a slash and a directory with that name exists,
+file(s) are read from this directory (and deleted after processing).
+All files found from the given directory are processed one by one, expect hidden files (name begins with a dot).
+When this setting points to the directory, no dot's are allowed in any position of a path.
+Be very careful with this setting while it will delete the content of a whole directory.
+<br>
+After >= 3.0.9: while reading a PDU from file, a first line starting with PDU: and space is taken if any exists.
+<br>
+After >= 3.1.5: this can be used only with check_memory_method values 0 or 1.
+</p>
+
+<p>
+<i><b><a name="m_phonecalls">phonecalls</a> = yes/no/clip</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.
+Specifies if missed phonecalls are reported.
+After version >= 3.1.7 a value <b>clip</b>, or <b>2</b> can be used.
+This value could be used with modems which do not support reading of phonebook,
+or phobebook cannot be used because entries cannot be deleted.
+Phocecall is detected using the <i>+CLIP Calling line identification report</i> from a modem.
+</p><p>
+When <i>phonecalls = clip</i> is used, a setting <i>hangup_incoming_call</i> is automaticatty set to yes.
+This is because smsd <u>must</u> hangup a call before it's handled.
+</p>
+
+<p>
+<i><b><a name="m_phonecalls_purge">phonecalls_purge</a> = yes/no/command</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.7.
+Specifies if missed phonecalls are removed using a purge command.
+Value <i>yes</i> specifies that <b>AT^SPBD="MC"</b> command is used, this works with some Siemens based devices.
+Other command can be given as a value.
+</p>
+
+<p>
+<i><b><a name="m_pin">pin</a> = 4 digit number</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Specifies the PIN number of the SIM card inside the modem.
+See also <i>pinsleeptime</i>.
+<br>
+Note after version >= 3.1.1: Even if a PIN is not defined, it's still checked if a PIN is needed.
+Some phones may give an incorrect answer for the check when a pin is not needed, like <i>SIM PIN2</i> or <i>SIM PUK2</i> instead of <i>READY</i>.
+In this case define <i>pin = ignore</i> to skip the whole PIN handling procedure.
+</p>
+
+<p>
+<i><b><a name="m_pinsleeptime">pinsleeptime</a> = number</b></i><br>
+<font size="1">Default value: <i>0</i>.</font><br>
+Available from version >= 3.0.9. Specifies how many seconds the program will sleep after a PIN is entered.
+Some modems do not work without some delay.
+</p>
+
+<p>
+<i><b><a name="m_phonecalls_error_max">phonecalls_error_max</a> = number</b></i><br>
+<font size="1">Default value: <i>3</i>.</font><br>
+Available from version >= 3.1.7.
+Specifies the maximum number of errors before phonecalls are ignored.
+</p>
+
+<p>
+<i><b><a name="m_pre_init">pre_init</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.0.8. Specifies is an "echo off" and "CMEE=1" commands are sent to the modem
+before anything else is done.
+</p>
+
+<p>
+<i><b><a name="m_primary_memory">primary_memory</a> = memory name</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+<i><b><a name="m_secondary_memory">secondary_memory</a> = memory name</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+<i><b><a name="m_secondary_memory_max">secondary_memory_max</a> = number</b></i><br>
+<font size="1">Default value: accept what device returns.</font><br>
+These three settings are used to control dual-memory handler, available from version >= 3.0.<br>
+If your modem/phone receives messages to the Mobile Equipment (ME) memory after the SIM memory (SM) has been filled up,
+with dual-memory handler messages can be read from the Mobile Equipment memory too.<br>
+Defining secondary_memory_max is needed, if your device does not tell how much there is space in the Mobile Equipment memory.
+For example the Nokia 6210 does not tell (it returns 0 as max value) and with this device 150 is reasonable value.<br>
+From version >= 3.1, multiple parameters can be defined for memories, like SM,SM,SM.
+Double-quotation marks are not necessary to use in the string.
+</p>
+
+<p>
+<i><b><a name="m_priviledged_numbers">priviledged_numbers</a> = list of numbers</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Available from version >= 3.1.5.
+This setting overrides the setting in the global part.
+See the global part for details.
+</p>
+
+<p>
+<i><b><a name="m_queues">queues</a> = list of queue names</b></i><br>
+<font size="1">Default value: not in use.</font><br>
+Specifies the Provider Queues that this modem shall serve.
+Use the same provider names as in [queues] and [providers].
+If you do not use the provider-sorting feature, then leave this line out.
+After version >= 3.1.5 special keyword <b>modemname</b> can be used, it's replaced with a name of modem.
+</p>
+
+<p>
+<i><b><a name="m_read_timeout">read_timeout</a> = number</b></i><br>
+<font size="1">Default value: 5.</font><br>
+Available from version >= 3.1.5.
+When smsd reads data from a modem, timeout will occur after <i>read_timeout</i> seconds if an acceptable answer is not received.
+Some very slow devices might need greater value than 5 seconds.
+</p>
+
+<p>
+<i><b><a name="m_regular_run">regular_run</a> = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+<b>Regular_run for a modem is available from version >= 3.1:</b>
+<br>
+This setting defines an external script or program to execute.
+A modem can be used as it's closed by the smsd.
+</p>
+
+<p>
+<i><b><a name="m_regular_run_cmd">regular_run_cmd</a> = string</b></i><br>
+<font size="1">Default value: <i>empty</i>.</font><br>
+Like regular_run_cmdfile, this string can be used to define modem commands.
+This setting can be used more than once to define multiple commands.
+</p>
+
+<p>
+<i><b><a name="m_regular_run_cmdfile">regular_run_cmdfile</a> = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+This file can contain command lines which smsd will write to the modem.
+Modem result of each line is logged and written to the regular_run_statfile (if defined).
+After a file is processed, it is removed.
+If you need to use permanent commands on each run, use regular_run script to create this file or
+define commands using regular_run_cmd settings.
+</p>
+
+<p>
+<i><b><a name="m_regular_run_interval">regular_run_interval</a> = number</b></i><br>
+<font size="1">Default value: <i>300</i>.</font><br>
+Describes number of seconds between each run.
+Value <i>0</i> disables this feature.
+</p>
+
+<p>
+<i><b><a name="m_regular_run_logfile">regular_run_logfile</a> = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+Defines a log file for regular_run. Syslog cannot be used for this.
+If a log file is not defined, smsd's main log is used.
+</p>
+
+<p>
+<i><b><a name="m_regular_run_loglevel">regular_run_loglevel</a> = number</b></i><br>
+<font size="1">Default value: <i>LOG_NOTICE</i>.</font><br>
+Defines a level of logging.
+</p>
+
+<p>
+<i><b><a name="m_regular_run_post_run">regular_run_post_run</a> = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+Available from version >= 3.1.7.
+This setting can define the second script or program which is executed regularly.
+The same script with <i>regular_run</i> can be used.
+The script gets an argument <i>$1</i> which is <i>PRE_RUN</i> for <i>regular_run</i> and <i>POST_RUN</i> for <i>regular_run_post_run</i>.
+There is also the second argument <i>$2</i>, which includes a definition of <i>regular_run_statfile</i>.
+<br>
+<br>
+This is how the regular_run for a modem currently works:
+<ul>
+  <li>If <i>regular_run</i> is defined, it's executed with arguments <i>PRE_RUN</i> and <i>regular_run_statfile</i>.
+      A modem is closed while the script is running.
+      <i>regular_run_statfile</i> is available from the previous run.
+  </li>
+  <li><i>regular_run_statfile</i> is deleted.
+  </li>
+  <li>If <i>regular_run_cmdfile</i> is defined and the file exists, commands from this file are sent to the modem.
+      If <i>regular_run_logfile</i> is defined, results are written to the file.
+      If <i>regular_run_statfile</i> is defined, results are written to this file too.
+      NOTE: <i>regular_run_cmdfile</i> is deleted after commands are handled.
+      Use PRE_RUN phase or an external process to create this file.
+  </li>
+  <li>If <i>regular_run_cmd</i>, one or more, is defined, commands are sent to the modem.
+      Results are logged and written to the statfile, if defined.
+  </li>
+  <li>If <i>regular_run_post_run</i> is defined, it's executed with arguments <i>POST_RUN</i> and <i>regular_run_statfile</i>.
+  </li>
+</ul>
+</p>
+
+<p>
+<i><b><a name="m_regular_run_statfile">regular_run_statfile</a> = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+If defined, results of commands are written to this file.
+Old file is cleared before each run.
+</p>
+
+<p>
+<i><b><a name="m_report">report</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+If you enable this, the program requests a status report SM from the SMSC for each sent message.
+This does not work on many mobile phones and on some modems.
+</p>
+
+<p>
+<i><b><a name="m_report_device_details">report_device_details</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no/ues</i>.</font><br>
+Available from version >= 3.1.7.
+Defines if a details from device are printed to the log when modem process is starting.
+With beta versions of smsd this setting defaults to <i>yes</i>, otherwise it defaults to <i>no</i>.
+</p>
+
+<p>
+<i><b><a name="m_routed_status_report_cnma">routed_status_report_cnma</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.7.
+Defines if +CNMA acknowledgement is needed to send after routed status report was received.
+</p>
+
+<p>
+<i><b><a name="m_rtscts">rtscts</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+You can disable usage of hardware handshake wires by setting this option to "no".
+Please don't use this feature in commercial applications because
+the hardware handshake wires ensure proper communications timing between the
+computer and the modem.
+</p>
+
+<p>
+<i><b><a name="m_send_delay">send_delay</a> = number</b></i><br>
+<font size="1">Default value: <i>1</i>.</font><br>
+If your modem does not support hardware handshake you should use the lowest possible baudrate to ensure that the
+program does not run faster than the modem can do. However, if the lowest possible baudrate is still too fast, then you
+can use this parameter to make it even slower.
+A value of 300 means that the program waits 300 milliseconds between sending each single character to the modem
+which makes the program very slow.<br>
+From version >= 3.1.5, value 0 means that whole string is sent at once without any delays.
+This resolves slow communication with LAN based multiport servers, like Digi Portserver II.
+If, for some reason, "tcdrain" is still needed after sending, use value -1.
+</p>
+
+<p>
+<i><b><a name="m_send_handshake_select">send_handshake_select</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.9.
+Instead of checking the flag TIOCM_CTS, select() function is used when the serial transmitted is busy.
+If because of some reason the old style should be used, this setting allows it.
+</p>
+
+<p>
+<i><b><a name="m_sending_disabled">sending_disabled</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.0. This is for testing purposes.<br>
+You can test your eventhandler and whole system around the smsd without sending any messages to the GSM network.
+All other functionality is working as usual, so this is some kind of "mute" to the modem.
+However the modem should be connected and working.
+This does not have an effect to the incoming messsages.
+</p>
+
+<p>
+<i><b><a name="m_socket_connection_alarm_after">socket_connection_alarm_after</a> = number</b></i><br>
+<font size="1">Default value: <i>0</i>.</font><br>
+Available from version >= 3.1.7.
+After defined number of retries, an alarmhandler is called.
+Smsd still continues trying, if <i>socket_connection_retries</i> value is bigger.
+</p>
+
+<p>
+<i><b><a name="m_socket_connection_errorsleeptime">socket_connection_errorsleeptime</a> = number</b></i><br>
+<font size="1">Default value: <i>5</i>.</font><br>
+Available from version >= 3.1.7.
+Defines how many seconds the smsd will sleep after an error with socket connection.
+</p>
+
+<p>
+<i><b><a name="m_socket_connection_retries">socket_connection_retries</a> = number</b></i><br>
+<font size="1">Default value: <i>11</i>.</font><br>
+Available from version >= 3.1.7.
+Defines how many times smsd will retry when a socket connection fails.
+When maximum number of retries is reached, modem process will call alarmhandler and stop.
+With value -1 smsd will retry forever.
+</p>
+
+<p>
+<i><b><a name="m_start">start</a> = modem command</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+<i><b><a name="m_startsleeptime">startsleeptime</a> = number</b></i><br>
+<font size="1">Default value: <i>3</i></font><br>
+<i><b><a name="m_stop">stop</a> = modem command</b></i><br>
+<font size="1">Default value: <i>not in use</i></font><br>
+Available from version >= 3.1.7.
+If defined, <i>start</i> command is sent to the modem when a modem process starts.
+After a command is sent, <i>startsleeptime</i> is spent.
+When a modem process is stopping, <i>stop</i> command is sent to the modem.
+</p>
+
+<p>
+<i><b><a name="m_status_include_counters">status_include_counters</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+<i><b><a name="m_status_signal_quality">status_signal_quality</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.5.
+These settings define if message counters and explained signal quality is included in the line of <i>status</i> file.
+Modem setting overrides global setting.
+</p>
+
+<p>
+<i><b><a name="m_trust_spool">trust_spool</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.9.
+When a modem process is searching for a file from the spooler, it assumes that the file is complete when it exists and it's not locked.
+This will speed up sending, because one second delay is avoided.
+If some other process or checkhandler is creating files directly to the spooler, it may be necessary to set this to <i>no</i>.
+</p>
+
+<p>
+<i><b><a name="m_unexpected_input_is_trouble">unexpected_input_is_trouble</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Available from version >= 3.1.5.
+With smart_logging, this setting defines if unexpected input activates trouble log.
+</p>
+
+<p>
+<i><b><a name="m_using_routed_status_report">using_routed_status_report</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.7.
+Smsd can detect routed status reports, but usually it's not recommended to use them.
+Modems should store status reports as an ordinary messages, which can be read when smsd will need them.
+However, some modem cannot store status reports, and therefore routing is the only way to get them.
+With this setting smsd will change some severity and text of a logging.
+</p>
+
+<p>
+<i><b><a name="m_ussd_convert">ussd_convert</a> = number</b></i><br>
+<font size="1">Default value: <i>0</i>.</font><br>
+Available from version >= 3.1.7.
+Defines if a text part from incoming USSD message is decoded.
+Possible values are:<br>
+<table border=1 bgcolor=lightgrey>
+  <tr><td bgcolor=yellow valign=top>&nbsp;1&nbsp;</td><td>Unicode format is converted to UTF-8. This requires that USE_ICONV is defined.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;2&nbsp;</td><td>GSM 7bit packed format is converted to ISO or UTF-8.</td></tr>
+  <tr><td bgcolor=yellow valign=top>&nbsp;4&nbsp;</td><td>Hexadecimal dump is converted to ASCII. (Available from version >= 3.1.11.)</td></tr>
+</table>
+<p>Decoded text is appended to the original answer with two slashes and one space character.
+</p>
+</p>
+
+<p>
+<i><b><a name="m_voicecall_cpas">voicecall_cpas</a> = yes/no</b></i><br>
+<font size="1">Default value: no.</font><br>
+Available from version >= 3.1.7.
+Defines if AT+CPAS is used to detect when a call is answered.
+This is required if modem returns OK immediately after the call.
+</p>
+
+<p>
+<i><b><a name="m_voicecall_hangup_ath">voicecall_hangup_ath</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.5.
+Defines if <b>ATH</b> is used to hangup call instead of <b>AT+CHUP</b>.
+This setting overrides the setting in the global part.
+</p>
+
+<p>
+<i><b><a name="m_voicecall_ignore_modem_response">voicecall_ignore_modem_response</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.5.
+When a voicecall is ringing, some devices give OK answer after couple of seconds even if a call is not yet answered.
+With this kind of device DTMF tones cannot be sent.
+If a ringing time is defined in the message file (using <b>TIME: n</b>), the waiting loop is breaked too soon.
+To avoid this, use <i>voicecall_ignore_modem_response = yes</i> in the modem settings.
+With this setting call rings n seconds (if not answered) and after this voicecall is over.
+</p>
+
+<p>
+<i><b><a name="m_voicecall_vts_list">voicecall_vts_list</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.3.
+Defines how VTS command is used to create DTMF tones:
+<i>yes</i> = AT+VTS=1,2,3,4,5 (list is used), <i>no</i> = each tone is created with single command like AT+VTS="1";+VTS="2" etc.
+</p>
+
+<p>
+<i><b><a name="m_voicecall_vts_quotation_marks">voicecall_vts_quotation_marks</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.7.
+Defines if quotation marks are used when sending VTS command to the modem.
+NOTE: previously quotation marks were used, now this setting default to <i>no</i>.
+</p>
+
+
+<p>
+</p>
+<hr>
+</body>
+</html>
+
