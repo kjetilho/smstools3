@@ -964,6 +964,63 @@ int explain_toa(char *dest, char *octet_char, int octet_int)
   return result;
 }
 
+// 3.1.14:
+void explain_status(char *dest, size_t size_dest, int status)
+{
+  char *p = "unknown";
+
+  switch (status)
+  {
+    case 0: p = "Ok,short message received by the SME"; break;
+    case 1: p = "Ok,short message forwarded by the SC to the SME but the SC is unable to confirm delivery"; break;
+    case 2: p = "Ok,short message replaced by the SC"; break;
+
+    // Temporary error, SC still trying to transfer SM
+    case 32: p = "Still trying,congestion"; break;
+    case 33: p = "Still trying,SME busy"; break;
+    case 34: p = "Still trying,no response sendr SME"; break;
+    case 35: p = "Still trying,service rejected"; break;
+    case 36: p = "Still trying,quality of service not available"; break;
+    case 37: p = "Still trying,error in SME"; break;
+    // 38...47: Reserved
+    // 48...63: Values specific to each SC
+
+    // Permanent error, SC is not making any more transfer attempts
+    case 64: p = "Error,remote procedure error"; break;
+    case 65: p = "Error,incompatible destination"; break;
+    case 66: p = "Error,connection rejected by SME"; break;
+    case 67: p = "Error,not obtainable"; break;
+    case 68: p = "Error,quality of service not available"; break;
+    case 69: p = "Error,no interworking available"; break;
+    case 70: p = "Error,SM validity period expired"; break;
+    case 71: p = "Error,SM deleted by originating SME"; break;
+    case 72: p = "Error,SM deleted by SC administration"; break;
+    case 73: p = "Error,SM does not exist"; break;
+    // 74...79: Reserved
+    // 80...95: Values specific to each SC
+
+    // Permanent error, SC is not making any more transfer attempts
+    case 96: p = "Error,congestion"; break;
+    case 97: p = "Error,SME busy"; break;
+    case 98: p = "Error,no response sendr SME"; break;
+    case 99: p = "Error,service rejected"; break;
+    case 100: p = "Error,quality of service not available"; break;
+    case 101: p = "Error,error in SME"; break;
+    // 102...105: Reserved
+    // 106...111: Reserved
+    // 112...127: Values specific to each SC
+    // 128...255: Reserved
+
+    default:
+      if (status >= 48 && status <= 63)
+        p = "Temporary error, SC specific, unknown";
+      else if ((status >= 80 && status <= 95) || (status >= 112 && status <= 127))
+        p = "Permanent error, SC specific, unknown";
+  }
+
+  snprintf(dest, size_dest, "%s", p);
+}
+
 // Subroutine for messages type 0 (SMS-Deliver)
 // Input:
 // Src_Pointer points to the PDU string
@@ -1201,7 +1258,6 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
   char tmpsender[100];
   int messageid;
   int i;
-  char *p;
   const char SR_MessageId[] = "Message_id:"; // Fixed title inside the status report body.
   const char SR_Status[] = "Status:"; // Fixed title inside the status report body.
 
@@ -1382,40 +1438,10 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
                   pdu_error(err_str, 0, Src_Pointer -full_pdu, 2, "Invalid Status octet: \"%.2s\"", Src_Pointer);
                 else
                 {
-                  switch (status)
-                  {
-                    case 0: p = "Ok,short message received by the SME"; break;
-                    case 1: p = "Ok,short message forwarded by the SC to the SME but the SC is unable to confirm delivery"; break;
-                    case 2: p = "Ok,short message replaced by the SC"; break;
+                  char buffer[128];
 
-                    case 32: p = "Still trying,congestion"; break;
-                    case 33: p = "Still trying,SME busy"; break;
-                    case 34: p = "Still trying,no response sendr SME"; break;
-                    case 35: p = "Still trying,service rejected"; break;
-                    case 36: p = "Still trying,quality of service not available"; break;
-                    case 37: p = "Still trying,error in SME"; break;
-
-                    case 64: p = "Error,remote procedure error"; break;
-                    case 65: p = "Error,incompatible destination"; break;
-                    case 66: p = "Error,connection rejected by SME"; break;
-                    case 67: p = "Error,not obtainable"; break;
-                    case 68: p = "Error,quality of service not available"; break;
-                    case 69: p = "Error,no interworking available"; break;
-                    case 70: p = "Error,SM validity period expired"; break;
-                    case 71: p = "Error,SM deleted by originating SME"; break;
-                    case 72: p = "Error,SM deleted by SC administration"; break;
-                    case 73: p = "Error,SM does not exist"; break;
-
-                    case 96: p = "Error,congestion"; break;
-                    case 97: p = "Error,SME busy"; break;
-                    case 98: p = "Error,no response sendr SME"; break;
-                    case 99: p = "Error,service rejected"; break;
-                    case 100: p = "Error,quality of service not available"; break;
-                    case 101: p = "Error,error in SME"; break;
-
-                    default: p = "unknown";
-                  }
-                  sprintf(strchr(result, 0), "\n%s %i,%s", SR_Status, status, p);
+                  explain_status(buffer, sizeof(buffer), status);
+                  sprintf(strchr(result, 0), "\n%s %i,%s", SR_Status, status, buffer);
                 }
               }
             }

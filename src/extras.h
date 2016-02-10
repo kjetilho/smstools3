@@ -97,4 +97,6 @@ void strcat_realloc(char **buffer, char *str, char *delimiter);
 
 char *strcpyo(char *dest, const char *src);
 
+void getfield(char* line, int field, char* result, int size);
+
 #endif

@@ -815,7 +815,7 @@ int change_headers(char *filename, char *remove_headers, char *add_buffer, char 
   vsnprintf(new_headers, sizeof(new_headers), add_headers, argp);
   va_end(argp);
 
-  // 3.1.12:
+  // 3.1.12: Temporary file in checked directory causes troubles with more than one modems:
   //sprintf(tmp_filename,"%s.XXXXXX", filename);
   sprintf(tmp_filename,"/tmp/smsd.XXXXXX");
 
@@ -880,59 +880,43 @@ int change_headers(char *filename, char *remove_headers, char *add_buffer, char 
 
       fclose(fptmp);
       fclose(fp);
-      unlink(filename);
-      rename(tmp_filename, filename);
+
+      // 3.1.14: rename does not work across different mount points:
+      //unlink(filename);
+      //rename(tmp_filename, filename);
+      if (rename(tmp_filename, filename) != 0)
+      {
+        if (!(fptmp = fopen(tmp_filename, "r")))
+        {
+            writelogfile0(LOG_WARNING, 1, tb_sprintf("Header handling aborted, reading %s failed", tmp_filename));
+            alarm_handler0(LOG_WARNING, tb);
+            result = 2;
+        }
+        else
+        {
+          if (!(fp = fopen(filename, "w")))
+          {
+            writelogfile0(LOG_WARNING, 1, tb_sprintf("Header handling aborted, creating %s failed", filename));
+            alarm_handler0(LOG_WARNING, tb);
+            result = 1;
+          }
+          else
+          {
+            while ((n = fread(line, 1, sizeof(line), fptmp)) > 0)
+              fwrite(line, 1, n, fp);
+
+            fclose(fp);
+          }
+
+          fclose(fptmp);
+          unlink(tmp_filename);
+        }
+      }
+
     }
   }
 
   return result;
-}
-
-/* =======================================================================
-   Get a field from a modem answer, remove quotes
-   ======================================================================= */
-
-void getfield(char* line, int field, char* result, int size)
-{
-  char* start;
-  char* end;
-  int i;
-  int length;
-
-#ifdef DEBUGMSG
-  printf("!! getfield(line=%s, field=%i, ...)\n",line,field);
-#endif
-  if (size < 1)
-    return;
-
-  *result=0;
-  start=strstr(line,":");
-  if (start==0)
-    return;
-  for (i=1; i<field; i++)
-  {
-    start=strchr(start+1,',');
-    if (start==0)
-      return;      
-  }
-  start++;
-  while (start[0]=='\"' || start[0]==' ')
-    start++;
-  if (start[0]==0)
-    return;
-  end=strstr(start,",");
-  if (end==0)
-    end=start+strlen(start)-1;
-  while ((end[0]=='\"' || end[0]=='\"' || end[0]==',') && (end>=start))
-    end--;
-  length=end-start+1;
-  if (length >= size)
-    return;
-  strncpy(result,start,length);
-  result[length]=0;
-#ifdef DEBUGMSG
-  printf("!! result=%s\n",result);
-#endif    
 }
 
 /* =======================================================================
@@ -1652,8 +1636,9 @@ void mainspooler()
     {
       // In Cygwin serial port cannot be opened if another smsd is started.
       // This causes another modem process to shut down. Therefore pid checking is not necessary.
-      if (!os_cygwin)
-      {
+      // 3.1.14: Still do the test in Cygwin too, because two mainspoolers may cause "conflicts":
+      //if (!os_cygwin)
+      //{
         if ((i = check_pid(pidfile)))
         {
           writelogfile(LOG_ERR, 1, tb_sprintf("FATAL ERROR: Looks like another smsd (%i) is running. I (%i) quit now.", i, (int)getpid()));
@@ -1661,7 +1646,7 @@ void mainspooler()
           *pidfile = 0;
           abnormal_termination(1);
         }
-      }
+      //}
 
       last_spooling = now;
       workless_delay = 0;
@@ -2958,7 +2943,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
   {
     char *p;
     char id[41];
-    char status[41];
+    char status[128];
     const char SR_MessageId[] = "Message_id:"; // Fixed title inside the status report body.
     const char SR_Status[] = "Status:"; // Fixed title inside the status report body.
 
@@ -2966,8 +2951,12 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
     *status = 0;
     if ((p = strstr(ascii, SR_MessageId)))
       sprintf(id, ", %s %i", SR_MessageId, atoi(p +strlen(SR_MessageId) +1));
+
     if ((p = strstr(ascii, SR_Status)))
-      sprintf(status, ", %s %i", SR_Status, atoi(p +strlen(SR_Status) +1));
+      // 3.1.14: include explanation
+      //sprintf(status, ", %s %i", SR_Status, atoi(p +strlen(SR_Status) +1));
+      snprintf(status, sizeof(status), ", %s %s", SR_Status, p +strlen(SR_Status) +1);
+
     writelogfile(LOG_NOTICE, 0, "SMS received (report%s%s), From: %s", id, status, sendr); 
   }
 
@@ -3777,7 +3766,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
   if (strcasecmp(DEVICE.mode,"old")==0)
     sprintf(command,"AT+CMGS=%i\r",(int)strlen(pdu)/2);
   else
-    sprintf(command,"AT+CMGS=%i\r",(int)strlen(pdu)/2-1);
+    sprintf(command,"AT%s+CMGS=%i\r", (DEVICE.verify_pdu)? "E1" : "", (int)strlen(pdu)/2-1); // 3.1.4: verify_pdu
 
   sprintf(command2,"%s\x1A",pdu);
   
@@ -3804,8 +3793,8 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
       (enable_smsd_debug && parts > 2 && part == 1 && strstr(smsd_debug, "drop2"))
      )
   {
-    writelogfile(LOG_NOTICE, 1, "Test run, NO actual sending:%s from %s to %s", partstr, from, to);
-    writelogfile(LOG_DEBUG, 1, "PDU to %s: %s\n%s", to, command, pdu);
+    writelogfile(LOG_NOTICE, 0, "Test run, NO actual sending:%s from %s to %s", partstr, from, to);
+    writelogfile(LOG_DEBUG, 0, "PDU to %s: %s %s", to, command, pdu);
 
     // 3.1.12: Simulate sending time
     //sleep(1);
@@ -3834,7 +3823,63 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
       put_command(command, answer, sizeof(answer), 2, "(>)|(ERROR)");
       // Send message if command was successful
       if (!strstr(answer,"ERROR"))
+      {
         put_command(command2, answer ,sizeof(answer), 12, EXPECT_OK_ERROR);
+
+        // 3.1.14:
+        if (DEVICE.verify_pdu)
+        {
+          char *buffer;
+
+          if ((buffer = strdup(command2)))
+          {
+            int i;
+
+            i = strlen(buffer);
+            if (i > 1)
+            {
+              buffer[i - 1] = 0;
+
+              if (strstr(answer, buffer))
+                writelogfile(LOG_NOTICE, 0, "Verify PDU: OK");
+              else
+              {
+                int src = 0;
+                char *p = answer;
+
+                while (buffer[src])
+                {
+                  if (*p && (p = strchr(p, buffer[src])))
+                  {
+                    p++;
+                    src++;
+                  }
+                  else
+                  {
+                    writelogfile(LOG_ERR, 1, "Verify PDU: ERROR (pos: %s)", src);
+                    writelogfile(LOG_ERR, 1, "Verify PDU: -> %s", buffer);
+                    writelogfile(LOG_ERR, 1, "Verify PDU: <- %s", answer);
+                    break;
+                  }
+                }
+
+                if (buffer[src] == 0)
+                  writelogfile(LOG_NOTICE, 0, "Verify PDU: OK (not exact)");
+              }
+            }
+
+            free(buffer);
+          }
+        }
+      }
+
+      // 3.1.14:
+      if (DEVICE.verify_pdu)
+      {
+        char answer2[1024];
+
+        put_command("ATE0\r", answer2 ,sizeof(answer2), 1, EXPECT_OK_ERROR);
+      }
 
       // Check answer
       if (strstr(answer,"OK"))
@@ -3886,7 +3931,12 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
           sprintf(replacestr, ", Replace_msg: %i", replace_msg);
 
         // 3.1:
-        writelogfile(LOG_NOTICE, 0, "SMS sent%s, Message_id: %s%s, To: %s, sending time %i sec.", partstr, tmpid, replacestr, to, time(0) -start_time);
+        //writelogfile(LOG_NOTICE, 0, "SMS sent%s, Message_id: %s%s, To: %s, sending time %i sec.", partstr, tmpid, replacestr, to, time(0) -start_time);
+        // 3.1.14: show retries
+        *answer = 0;
+        if (retries > 0)
+          snprintf(answer, sizeof(answer), " Retries: %i.", retries);
+        writelogfile(LOG_NOTICE, 0, "SMS sent%s, Message_id: %s%s, To: %s, sending time %i sec.%s", partstr, tmpid, replacestr, to, time(0) -start_time, answer);
 
         // 3.1.1:
         update_message_counter(1, DEVICE.name);
@@ -3900,6 +3950,9 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
       }  
       else 
       {
+        // 3.1.14: show retries and trying time when stopping:
+        int result = 0;
+
         // Set the error text:
         if (error_text)
         {
@@ -3917,48 +3970,26 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
 
         alarm_handler0(LOG_ERR, tb);
 
-        retries+=1;
-        if (retries<=2)
+        if (++retries <= 2)
         {
-          writelogfile(LOG_NOTICE, 1, "Waiting %i sec. before retrying",errorsleeptime);
+          writelogfile(LOG_NOTICE, 1, "Waiting %i sec. before retrying", errorsleeptime);
+
           if (t_sleep(errorsleeptime))
-          {
-            // Cancel if terminating
-            STATISTICS->usage_s+=time(0)-start_time;
-            STATISTICS->failed_counter++;
-            writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed", partstr, to));
-            alarm_handler0(LOG_WARNING, tb);
-
-            flush_smart_logging();
-
-            return 3;
-          }
-
-          // Initialize modem after error
-          if (initialize_modem_sending(""))
-          {
-            // Cancel if initializing failed
-            STATISTICS->usage_s+=time(0)-start_time;
-            STATISTICS->failed_counter++;
-            writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed", partstr, to));
-            alarm_handler0(LOG_WARNING, tb);
-
-            flush_smart_logging();
-
-            return 1;
-          }
+            result = 3; // Cancel if terminating
+          else if (initialize_modem_sending("")) // Initialize modem after error
+            result = 1; // Cancel if initializing failed
         }
         else
+          result = 2; // Cancel if too many retries
+
+        if (result)
         {
-          // Cancel if too many retries
-          STATISTICS->usage_s+=time(0)-start_time;
+          STATISTICS->usage_s += time(0) - start_time;
           STATISTICS->failed_counter++;
-          writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed", partstr, to));
+          writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed, trying time %i sec. Retries: %i.", partstr, to, time(0) - start_time, retries - 1));
           alarm_handler0(LOG_WARNING, tb);
-
           flush_smart_logging();
-
-          return 2;
+          return result;
         }
       }
     }  
@@ -5405,7 +5436,7 @@ int cmd_to_modem(
 
 			// 3.1.5: If signal quality was checked, explain it to the log:
 			if (!strcasecmp(cmd, "AT+CSQ\r"))
-				explain_csq(DEVICE.dev_rr_loglevel, 0, answer);
+				explain_csq(DEVICE.dev_rr_loglevel, 0, answer, DEVICE.signal_quality_ber_ignore);
 
 			if (DEVICE.dev_rr_statfile[0])
 			{
@@ -5836,6 +5867,7 @@ void devicespooler()
   time_t last_rr;
   time_t last_ic_purge;
   time_t started_sending;
+  int continuous_sent; // 3.1.14.
   char *p = "";
 
   // Load initial modemname.counter value:
@@ -6006,6 +6038,7 @@ void devicespooler()
     workless_delay = 0;
 
     started_sending = time(0);
+    continuous_sent = 0;
 
     while (!terminate && DEVICE.outgoing)
     {
@@ -6051,7 +6084,10 @@ void devicespooler()
       {
         if (!message_count)
           last_msgc_clear = time(0);
+
         message_count++;
+        continuous_sent++;
+
         if (DEVICE.message_limit > 0 &&
             message_count == DEVICE.message_limit)
         {
@@ -6070,6 +6106,15 @@ void devicespooler()
           {
             writelogfile0(LOG_DEBUG, 0, "Max continuous sending time reached, will do other tasks and then continue.");
             workless = 0;
+
+            if (continuous_sent)
+            {
+              time_t seconds;
+
+              seconds = time(0) - started_sending;
+              writelogfile(LOG_INFO, 0, "Sent %d messages in %d sec. Average time for one message: %.1f sec.", continuous_sent, seconds, (double)seconds / continuous_sent);
+            }
+
             break;
           }
         }

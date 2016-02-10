@@ -20,6 +20,7 @@ int trouble_logging_started;
 
 int change_loglevel(int new_level);
 void restore_loglevel();
+int get_loglevel();
 
 int openlogfile(char *filename, int facility, int level);
 

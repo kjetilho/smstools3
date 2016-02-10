@@ -65,7 +65,7 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
 </ul>
 </p>
 
-<h3>Coming to the next version, not yet released</h3>
+<h3>Coming to the version 3.2.x, not yet released</h3>
 
 <p>
   Estimated release time for following additions <s>is fall 2009.</s> <i>was fall 2009, but the publishing is delayed.</i>
@@ -84,13 +84,119 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
 
 </ol>
 
+<h3>Version history</h3>
+
+<b>21.09.2010&nbsp;&nbsp;&nbsp;&nbsp;3.1.14</b>
+
+<ol>
+  <li><p>
+      New setting for a modem: <i><b>signal_quality_ber_ignore = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      Some devices do not support <i>Bit Error Rate</i> when signal quality is asked, and this always provides
+      "Bit Error Rate: not known or not detectable" to the log line and to the status file.
+      With this setting <i>ber</i> can be ignored.
+  </p></li>
+
+  <li><p>
+      When logging "SMS sent...", and there has been retries, count of retries is shown in the log line:<br>
+      <i>SMS sent, Message_id: 12, To: 358401234567, sending time 34 sec. <b>Retries: 2</b></i>
+  </p></li>
+
+  <li><p>
+      When logging "SMS received...", and message is a status report, explanation of status is included in the log line:<br>
+      <i>SMS received (report, Message_id: 12, Status: 0<b>,Ok,short message received by the SME</b>), From: 358401234567</i>
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>verify_pdu = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      This setting is for testing purposes.
+      When trying to send SMS and modem does not accept the PDU, there may be a communication problem which breaks the sent PDU.
+      With this setting smsd changes "echo on", and verifies the string which is echoed back after the PDU was sent.
+      In case of mismatch "Verify PDU: ERROR" is printed to the log and also both sent and received strings are logged.
+      In case of success "Verify PDU: OK" is printed to the log.
+      After the verification is done, "echo" is changed back to "off".
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>loglevel_lac_ci = number/word</b></i>.<br>
+      <font size="1">Default value: <i>LOG_INFO</i>.</font><br>
+      Sets the verbosity of logging the <i>Location area code</i> and <i>Cell ID</i> and their changes.
+      This requires that AT+CREG? returns location information.
+      It is automatically enabled by <i>pre_init</i> using a command <i>CREG=2</i>.
+      After the Location are code or Cell ID changes, quality of signal is also logged.
+      This feature can be disabled with the setting which is more than current loglevel, for example <i>8</i>.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>log_not_registered_after = number</b></i>.<br>
+      <font size="1">Default value: <i>0</i>.</font><br>
+      If it's known that the modem gives "not registered" after a message is sent or received,
+      with this setting number of log messages can be avoided.
+  </p></li>
+
+  <li><p>
+      When "<i>MODEM IS NOT REGISTERED, WAITING...</i>" is logged, also alarmhandler is called with a severity <i>LOG_NOTICE</i>.
+  </p></li>
+
+  <li><p>
+      The script <b>email2sms</b> can handle e-mail with multiple recipients.
+  </p></li>
+
+  <li><p>
+      New global settings:<br>
+      <i><b>logtime_ms = yes/no</b></i><br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      <i><b>logtime_us = yes/no</b></i><br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      With these settings the timestamp in the log file can have microseconds or milliseconds shown.
+      These settings can be used when a default format for timestamp is in use.
+      Value is shown after seconds and is delimited with a dot.
+      </p>
+      <p>
+      If <i>logtime_format</i> is defined, these settings have no effect.
+      Milliseconds or microseconds can be included in customized <i>logtime_format</i> using keywords <i>timeus</i> or <i>timems</i>.
+  </p></li>
+
+  <li><p>
+      When <i>max_continuous_sending</i> time is reached and smsd will do other tasks, 
+      number of messages sent in max_continuous_sending time and average time for one 
+      message is logged with loglevel <i>LOG_NOTICE</i>.
+  </p></li>
+
+  <li><p>
+      When the sending of SMS fails, trying time and number of retries are logged.
+  </p></li>
+
+  <li><p>New global setting: <i><b>shell_test = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>yes</i>.</font><br>
+      When <i>executable_check</i> is enabled, testing of the <i>shell</i> can be omitted with this setting.
+  </p></li>
+
+</ol>
+
+<p>
+Bug fixes:
+<ol start="13">
+  <li><p>
+      When <i>executable_check</i> was enabled, smsd tested the <i>shell</i> using a <i>/tmp</i> directory for the script.
+      This caused failure when <i>/tmp</i> was mounted noexec.
+      Smsd now uses the <i>incoming</i> directory for the test.
+  </p></li>
+
+  <li><p>
+      Handling of headers failed when <i>/tmp</i> directory was on different mount than <i>/var/spool/sms</i> tree.
+      This caused that message file was not moved to the <i>sent</i> or <i>failed</i> directory.
+  </p></li>
+
+</ol>
 </p>
 
-<!--
-<h3>Coming to the next version, currently available as beta</h3>
--->
+<p>
+<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
+</p>
 
-<h3>Version history</h3>
+<hr>
 
 <b>02.09.2010&nbsp;&nbsp;&nbsp;&nbsp;3.1.12</b>
 
@@ -238,10 +344,6 @@ Bug fixes:
   </p></li>
 
 </ol>
-</p>
-
-<p>
-<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
 </p>
 
 <hr>

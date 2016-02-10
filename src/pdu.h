@@ -73,6 +73,8 @@ int remove_concatenation(char *udh);
 
 int explain_toa(char *dest, char *octet_char, int octet_int);
 
+void explain_status(char *dest, size_t size_dest, int status);
+
 int get_pdu_details(char *dest, size_t size_dest, char *pdu, int mnumber);
 void sort_pdu_details(char *dest);
 

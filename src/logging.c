@@ -48,6 +48,13 @@ void restore_loglevel()
   Level = SavedLevel;
 }
 
+// 3.1.14:
+int get_loglevel()
+{
+
+  return Level;
+}
+
 int openlogfile(char *filename, int facility, int level)
 {
   int result = 0;

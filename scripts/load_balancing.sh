@@ -9,12 +9,14 @@
 # Enable checkhandler (this script):
 # checkhandler = /usr/local/bin/load_balancing.sh
 #
-# Define queues and providers:
+# Define queues:
 # [queues]
 # Q1 = /var/spool/sms/Q1
 # Q2 = /var/spool/sms/Q2
 # Q3 = /var/spool/sms/Q3
-# 
+#
+# With smsd >= 3.1.7 providers are not needed to define,
+# with previous versions define the following:
 # [providers]
 # Q1 = 0,1,2,3,4,5,6,7,8,9,s
 # Q2 = 0,1,2,3,4,5,6,7,8,9,s
@@ -26,12 +28,25 @@
 # etc...
 # ---------------------------------------------------------------------------------------
 
+# Settings for this script:
 STATSDIR=/var/spool/sms/stats
+MODEMS=( GSM1 GSM2 GSM3 )
+QUEUES=( Q1 Q2 Q3 )
+
+# ---------------------------------------------------------------------------------------
+
+NUMBER_OF_MODEMS=${#MODEMS[@]}
+NUMBER_OF_QUEUES=${#QUEUES[@]}
+if [ $NUMBER_OF_MODEMS -ne $NUMBER_OF_QUEUES ]; then
+  echo "ERROR: Number of queues does not match number of modems."
+  exit 1 # Message is rejected.
+fi
 
 read_counter()
 {
-  RESULT=0
-  FILE=$STATSDIR/$1.counter
+  local RESULT=0
+  local FILE=$STATSDIR/$1.counter
+  local COUNTER=0
 
   if [[ -e $FILE ]]
   then
@@ -40,32 +55,34 @@ read_counter()
       RESULT=$COUNTER
     fi
   fi
+
   return $RESULT
 }
 
 # If there is Queue (or Provider) defined, load balancing is ignored:
 QUEUE=`formail -zx Queue: < $1`
-if [ "$QUEUE" = "" ]; then
+if [ -z "$QUEUE" ]; then
   QUEUE=`formail -zx Provider: < $1`
-  if [ "$QUEUE" = "" ]; then
-    # Read current counters:
-    read_counter GSM1
-    COUNTER1=$?
-    read_counter GSM2
-    COUNTER2=$?
-    read_counter GSM3
-    COUNTER3=$?
+  if [ -z "$QUEUE" ]; then
 
-    QUEUE=Q1
-    COUNTER=$COUNTER1
-    if [ $COUNTER2 -lt $COUNTER ]; then
-      QUEUE=Q2
-      COUNTER=$COUNTER2
-    fi
-    if [ $COUNTER3 -lt $COUNTER ]; then
-      QUEUE=Q3
-      COUNTER=$COUNTER3
-    fi
+    # Read current counters:
+    for ((i = 0; i < $NUMBER_OF_MODEMS; i++)); do
+      read_counter ${MODEMS[${i}]}
+      eval COUNTER_${MODEMS[${i}]}=$?
+    done
+
+    QUEUE=${QUEUES[0]}
+    tmp=COUNTER_${MODEMS[0]}
+    COUNTER=${!tmp}
+    for ((i = 1; i < $NUMBER_OF_MODEMS; i++)); do
+      tmp=COUNTER_${MODEMS[${i}]}
+      tmp=${!tmp}
+      if [ $tmp -lt $COUNTER ]; then
+        QUEUE=${QUEUES[${i}]}
+        tmp=COUNTER_${MODEMS[${i}]}
+        COUNTER=${!tmp}
+      fi
+    done
 
     TMPFILE=`mktemp /tmp/smsd_XXXXXX`
     cp $1 $TMPFILE

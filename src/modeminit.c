@@ -249,7 +249,7 @@ char *get_gsm_error(char *answer)
   return "";
 }
 
-char *explain_csq_buffer(char *buffer, int short_form, int ssi, int ber)
+char *explain_csq_buffer(char *buffer, int short_form, int ssi, int ber, int signal_quality_ber_ignore)
 {
 
   strcpy(buffer, (short_form)? "ssi: " : "Signal Strength Indicator: ");
@@ -278,50 +278,53 @@ char *explain_csq_buffer(char *buffer, int short_form, int ssi, int ber)
       sprintf(strchr(buffer, 0), "(%d,%d) %i dBm%s%s", ssi, ber, dbm, level, (ssi == 0)? " or less" : "");
   }
 
-  strcat(buffer, (short_form)? ", ber: " : ", Bit Error Rate: ");
-  switch (ber)
+  if (!signal_quality_ber_ignore)
   {
-    case 0:
-      strcat(buffer, (short_form)? "< 0.2 %" : "less than 0.2 %");
-      break;
+    strcat(buffer, (short_form)? ", ber: " : ", Bit Error Rate: ");
+    switch (ber)
+    {
+      case 0:
+        strcat(buffer, (short_form)? "< 0.2 %" : "less than 0.2 %");
+        break;
 
-    case 1:
-      strcat(buffer, "0.2 - 0.4 %");
-      break;
+      case 1:
+        strcat(buffer, "0.2 - 0.4 %");
+        break;
 
-    case 2:
-      strcat(buffer, "0.4 - 0.8 %");
-      break;
+      case 2:
+        strcat(buffer, "0.4 - 0.8 %");
+        break;
 
-    case 3:
-      strcat(buffer, "0.8 - 1.6 %");
-      break;
+      case 3:
+        strcat(buffer, "0.8 - 1.6 %");
+        break;
 
-    case 4:
-      strcat(buffer, "1.6 - 3.2 %");
-      break;
+      case 4:
+        strcat(buffer, "1.6 - 3.2 %");
+        break;
 
-    case 5:
-      strcat(buffer, "3.2 - 6.4 %");
-      break;
+      case 5:
+        strcat(buffer, "3.2 - 6.4 %");
+        break;
 
-    case 6:
-      strcat(buffer, "6.4 - 12.8 %");
-      break;
+      case 6:
+        strcat(buffer, "6.4 - 12.8 %");
+        break;
 
-    case 7:
-      strcat(buffer, (short_form)? "> 12.8 %" : "more than 12.8 %");
-      break;
+      case 7:
+        strcat(buffer, (short_form)? "> 12.8 %" : "more than 12.8 %");
+        break;
 
-    default:
-      strcat(buffer, (short_form)? "??" : "not known or not detectable");
-      break;
+      default:
+        strcat(buffer, (short_form)? "??" : "not known or not detectable");
+        break;
+    }
   }
 
   return buffer;
 }
 
-void explain_csq(int loglevel, int short_form, char *answer)
+void explain_csq(int loglevel, int short_form, char *answer, int signal_quality_ber_ignore)
 {
   int ssi;
   int ber = 99;
@@ -343,7 +346,7 @@ void explain_csq(int loglevel, int short_form, char *answer)
   if ((p = strchr(p, ',')))
     ber = atoi(p +1);
 
-  explain_csq_buffer(buffer, short_form, ssi, ber);
+  explain_csq_buffer(buffer, short_form, ssi, ber, signal_quality_ber_ignore);
 
   writelogfile0(loglevel, 0, buffer);
 }
@@ -449,7 +452,7 @@ int write_to_modem(char *command, int timeout, int log_command, int print_error)
             if (print_error)
               printf("\nCould not send character %c, cause: %s\n",command[x],strerror(errno));
             else
-              {
+            {
               writelogfile0(LOG_ERR, 1, tb_sprintf("Could not send character %c, cause: %s", command[x], strerror(errno)));
               alarm_handler0(LOG_ERR, tb);
             }
@@ -961,7 +964,8 @@ int put_command0(char *command, char *answer, int max, int timeout_count, char *
         // reading. This and SMS-DELIVER indication is not logged.
         if (!strstr(loganswer, "+CDSI:") && !strstr(loganswer, "+CMTI:"))
           if (!(strstr(loganswer, "+CLIP:") && DEVICE.phonecalls == 2))
-            writelogfile(LOG_ERR, DEVICE.unexpected_input_is_trouble, "Unexpected input: %s", loganswer);
+            if (!(strstr(loganswer, "+CREG:") && get_loglevel() >= DEVICE.loglevel_lac_ci)) // 3.1.14.
+              writelogfile(LOG_ERR, DEVICE.unexpected_input_is_trouble, "Unexpected input: %s", loganswer);
 
 	if (handlephonecall_clip(loganswer) != 1)
           if (strstr(loganswer, "RING") && DEVICE.phonecalls != 2)
@@ -1294,7 +1298,16 @@ int initmodem(char *new_smsc, int receiving)
   if (DEVICE.pre_init > 0)
   {
     writelogfile(LOG_INFO, 0, "Pre-initializing modem");
-    put_command((DEVICE.phonecalls == 2)? pre_initstring_clip : pre_initstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
+
+    // 3.1.14:
+    //put_command((DEVICE.phonecalls == 2)? pre_initstring_clip : pre_initstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
+    snprintf(command, sizeof(command), "%s", (DEVICE.phonecalls == 2)? pre_initstring_clip : pre_initstring);
+    if (get_loglevel() >= DEVICE.loglevel_lac_ci)
+      if (sizeof(command) > strlen(command) +8)
+        strcpy(command +strlen(command) -1, ";+CREG=2\r");
+
+    put_command(command, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
+
     if (!strstr(answer,"OK"))
       writelogfile(LOG_ERR, 1, "Modem did not accept the pre-init string");
   }
@@ -1436,7 +1449,7 @@ int initmodem(char *new_smsc, int receiving)
     }
     // 3.1.5:
     else
-      explain_csq(LOG_INFO, 0, answer);
+      explain_csq(LOG_INFO, 0, answer, DEVICE.signal_quality_ber_ignore);
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -1468,7 +1481,7 @@ int initmodem(char *new_smsc, int receiving)
         STATISTICS->ber = -2;
 
       // 3.1.7: Explain signal quality to the log:
-      explain_csq(LOG_INFO, 0, answer);
+      explain_csq(LOG_INFO, 0, answer, DEVICE.signal_quality_ber_ignore);
     }
     else
     {
@@ -2025,6 +2038,11 @@ int wait_network_registration(int waitnetwork_errorsleeptime, int retry_count)
   int registration_denied = 0;
   static int registration_ok = 0;
   char *p;
+  // 3.1.14:
+  static char prev_lac[32] = "";
+  static char prev_ci[32] = "";
+  char lac[32];
+  char ci[32];
 
   writelogfile(LOG_INFO, 0, "Checking if Modem is registered to the network");
 
@@ -2038,10 +2056,21 @@ int wait_network_registration(int waitnetwork_errorsleeptime, int retry_count)
       put_command("AT+CSQ\r", answer, sizeof(answer), 2, EXPECT_OK_ERROR);
 
       // 3.1.5: ...with details:
-      explain_csq(LOG_NOTICE, 0, answer);
+      explain_csq(LOG_NOTICE, 0, answer, DEVICE.signal_quality_ber_ignore);
     }
 
     put_command("AT+CREG?\r", answer, sizeof(answer), 2, "(\\+CREG:.*OK)|(ERROR)");
+
+    // 3.1.14:
+    if (get_loglevel() >= DEVICE.loglevel_lac_ci)
+    {
+      if ((p = strchr(answer, '\r')))
+        *p = ',';
+      getfield(answer, 3, lac, sizeof(lac));
+      getfield(answer, 4, ci, sizeof(ci));
+      if (strlen(ci) > 4)
+        memmove(ci, ci +strlen(ci) -4, 5);
+    }
 
     // 3.1.1: Some modem include spaces in the response:
     while ((p = strchr(answer, ' ')))
@@ -2096,7 +2125,13 @@ int wait_network_registration(int waitnetwork_errorsleeptime, int retry_count)
     }
     else if (strstr(answer,"+CREG:"))
     {
-      writelogfile(LOG_NOTICE, 0, "MODEM IS NOT REGISTERED, WAITING %i SEC. BEFORE RETRYING %i. TIME", waitnetwork_errorsleeptime, retries +1);
+      // 3.1.14: Skip logging if defined. Call alarmhandler.
+      if (retries >= DEVICE.log_not_registered_after)
+      {
+        writelogfile0(LOG_NOTICE, 1, tb_sprintf("MODEM IS NOT REGISTERED, WAITING %i SEC. BEFORE RETRYING %i. TIME", waitnetwork_errorsleeptime, retries +1));
+        alarm_handler0(LOG_NOTICE, tb);
+      }
+
       if (t_sleep(waitnetwork_errorsleeptime))
         return -2;
     }
@@ -2118,6 +2153,34 @@ int wait_network_registration(int waitnetwork_errorsleeptime, int retry_count)
     writelogfile0(LOG_ERR, 1, tb_sprintf("Error: Modem is not registered to the network"));
     alarm_handler0(LOG_ERR, tb);
     return -1;
+  }
+
+  // 3.1.14:
+  if (get_loglevel() >= DEVICE.loglevel_lac_ci && *lac && *ci)
+  {
+    if (*prev_lac && *prev_ci)
+    {
+      if (strcmp(prev_lac, lac))
+        writelogfile(DEVICE.loglevel_lac_ci, 0, "Location area code changed: %s -> %s", prev_lac, lac);
+
+      if (strcmp(prev_ci, ci))
+        writelogfile(DEVICE.loglevel_lac_ci, 0, "Cell ID changed: %s -> %s", prev_ci, ci);
+
+      if (strcmp(prev_lac, lac) || strcmp(prev_ci, ci))
+      {
+        put_command("AT+CSQ\r", answer, sizeof(answer), 2, EXPECT_OK_ERROR);
+        explain_csq(DEVICE.loglevel_lac_ci, 0, answer, DEVICE.signal_quality_ber_ignore);
+      }
+    }
+    else
+    {
+      writelogfile(DEVICE.loglevel_lac_ci, 0, "Location area code: %s, Cell ID: %s", lac, ci);
+      put_command("AT+CSQ\r", answer, sizeof(answer), 2, EXPECT_OK_ERROR);
+      explain_csq(DEVICE.loglevel_lac_ci, 0, answer, DEVICE.signal_quality_ber_ignore);
+    }
+
+    snprintf(prev_lac, sizeof(prev_lac), "%s", lac);
+    snprintf(prev_ci, sizeof(prev_ci), "%s", ci);
   }
 
   registration_ok = 1;

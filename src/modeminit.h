@@ -20,8 +20,8 @@ char *get_gsm_cme_error(int code);
 char *get_gsm_cms_error(int code);
 char *get_gsm_error(char *answer);
 
-char *explain_csq_buffer(char *buffer, int short_form, int ssi, int ber);
-void explain_csq(int loglevel, int short_form, char *answer);
+char *explain_csq_buffer(char *buffer, int short_form, int ssi, int ber, int signal_quality_ber_ignore);
+void explain_csq(int loglevel, int short_form, char *answer, int signal_quality_ber_ignore);
 
 int write_to_modem(char *command, int timeout, int log_command, int print_error);
 int read_from_modem(char *answer, int max, int timeout);

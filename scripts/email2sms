@@ -30,7 +30,15 @@
 
 
 
-OUTFILE=$(mktemp /var/spool/sms/outgoing/smsgw.out.XXXXXX)
-cat >$OUTFILE
-chmod 666 $OUTFILE
-echo "SMS queued to $OUTFILE"
+tmp=$(mktemp /tmp/smsgw.XXXXXX)
+cat >$tmp
+destinations=`formail -zx "To:" < $tmp`
+IFS=,
+for destination in $destinations; do
+  destination=${destination## }
+  OUTFILE=$(mktemp /var/spool/sms/outgoing/smsgw.out.XXXXXX)
+  formail -f -I "To: $destination" < $tmp > $OUTFILE
+  chmod 666 $OUTFILE
+  echo "SMS queued to $OUTFILE"
+done
+rm $tmp

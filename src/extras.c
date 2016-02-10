@@ -1470,13 +1470,42 @@ int make_datetime_string(char *dest, size_t dest_size, char *a_date, char *a_tim
   time_t rawtime;
   struct tm *timeinfo;
 
-  time(&rawtime);
+  //time(&rawtime);
 
+  // 3.1.14:
+  //if (!a_date && !a_time)
+  //  return strftime(dest, dest_size, (a_format)? a_format : datetime_format, localtime(&rawtime));
   if (!a_date && !a_time)
-    return strftime(dest, dest_size, (a_format)? a_format : datetime_format, localtime(&rawtime));
+  {
+    struct timeval tv;
+    struct timezone tz;
+    char *p;
+    char buffer[7];
+
+    gettimeofday(&tv, &tz);
+    rawtime = tv.tv_sec;
+    timeinfo = localtime(&rawtime);
+    result = strftime(dest, dest_size, (a_format)? a_format : datetime_format, timeinfo);
+
+    if ((p = strstr(dest, "timeus")))
+    {
+      snprintf(buffer, sizeof(buffer), "%06d", (int)tv.tv_usec);
+      strncpy(p, buffer, strlen(buffer));
+    }
+    else if ((p = strstr(dest, "timems")))
+    {
+      snprintf(buffer, sizeof(buffer), "%03d", (int)tv.tv_usec / 1000);
+      strncpy(p, buffer, strlen(buffer));
+      memmove(p + 3, p + 6, strlen(p + 6) + 1);
+    }
+
+    return result;
+  }
 
   if (a_date && strlen(a_date) >= 8 && a_time && strlen(a_time) >= 8)
   {
+    time(&rawtime);
+
     timeinfo = localtime(&rawtime);
     timeinfo->tm_year = atoi(a_date) + 100;
     timeinfo->tm_mon = atoi(a_date + 3) - 1;
@@ -1520,4 +1549,47 @@ char *strcpyo(char *dest, const char *src)
   dest[i] = '\0';
 
   return dest;
+}
+
+void getfield(char* line, int field, char* result, int size)
+{
+  char* start;
+  char* end;
+  int i;
+  int length;
+
+#ifdef DEBUGMSG
+  printf("!! getfield(line=%s, field=%i, ...)\n",line,field);
+#endif
+  if (size < 1)
+    return;
+
+  *result=0;
+  start=strstr(line,":");
+  if (start==0)
+    return;
+  for (i=1; i<field; i++)
+  {
+    start=strchr(start+1,',');
+    if (start==0)
+      return;      
+  }
+  start++;
+  while (start[0]=='\"' || start[0]==' ')
+    start++;
+  if (start[0]==0)
+    return;
+  end=strstr(start,",");
+  if (end==0)
+    end=start+strlen(start)-1;
+  while ((end[0]=='\"' || end[0]=='\"' || end[0]==',') && (end>=start))
+    end--;
+  length=end-start+1;
+  if (length >= size)
+    return;
+  strncpy(result,start,length);
+  result[length]=0;
+#ifdef DEBUGMSG
+  printf("!! result=%s\n",result);
+#endif    
 }

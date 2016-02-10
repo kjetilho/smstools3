@@ -432,7 +432,7 @@ void write_status()
             if (include_counters)
               fprintf(fp, ",");
 
-            explain_csq_buffer(buffer, 1, statistics[i]->ssi, statistics[i]->ber);
+            explain_csq_buffer(buffer, 1, statistics[i]->ssi, statistics[i]->ber, devices[i].signal_quality_ber_ignore);
             fprintf(fp, "\t%s", buffer);
           }
 

@@ -100,6 +100,8 @@ All global settings (in alphabetic order):<br>
 <a href="#g_log_read_from_modem">&nbsp;log_read_from_modem&nbsp;</a>&nbsp;
 <a href="#g_log_single_lines">&nbsp;log_single_lines&nbsp;</a>&nbsp;
 <a href="#g_logtime_format">&nbsp;logtime_format&nbsp;</a>&nbsp;
+<a href="#g_logtime_ms">&nbsp;logtime_ms&nbsp;</a>&nbsp;
+<a href="#g_logtime_us">&nbsp;logtime_us&nbsp;</a>&nbsp;
 <a href="#g_log_unmodified">&nbsp;log_unmodified&nbsp;</a>&nbsp;
 <a href="#g_max_continuous_sending">&nbsp;max_continuous_sending&nbsp;</a>&nbsp;
 <a href="#g_national_prefixes">&nbsp;national_prefixes&nbsp;</a>&nbsp;
@@ -115,6 +117,7 @@ All global settings (in alphabetic order):<br>
 <a href="#g_saved">&nbsp;saved&nbsp;</a>&nbsp;
 <a href="#g_sent">&nbsp;sent&nbsp;</a>&nbsp;
 <a href="#g_shell">&nbsp;shell&nbsp;</a>&nbsp;
+<a href="#g_shell_test">&nbsp;shell_test&nbsp;</a>&nbsp;
 <a href="#g_smart_logging">&nbsp;smart_logging&nbsp;</a>&nbsp;
 <a href="#g_spool_directory_order">&nbsp;spool_directory_order&nbsp;</a>&nbsp;
 <a href="#g_stats">&nbsp;stats&nbsp;</a>&nbsp;
@@ -170,6 +173,8 @@ All modem settings:
 <a href="#m_keep_open">&nbsp;keep_open&nbsp;</a>&nbsp;
 <a href="#m_logfile">&nbsp;logfile&nbsp;</a>&nbsp;
 <a href="#m_loglevel">&nbsp;loglevel&nbsp;</a>&nbsp;
+<a href="#m_loglevel_lac_ci">&nbsp;loglevel_lac_ci&nbsp;</a>&nbsp;
+<a href="#m_log_not_registered_after">&nbsp;log_not_registered_after&nbsp;</a>&nbsp;
 <a href="#m_max_continuous_sending">&nbsp;max_continuous_sending&nbsp;</a>&nbsp;
 <a href="#m_memory_start">&nbsp;memory_start&nbsp;</a>&nbsp;
 <a href="#m_message_count_clear">&nbsp;message_count_clear&nbsp;</a>&nbsp;
@@ -210,6 +215,7 @@ All modem settings:
 <a href="#m_send_delay">&nbsp;send_delay&nbsp;</a>&nbsp;
 <a href="#m_send_handshake_select">&nbsp;send_handshake_select&nbsp;</a>&nbsp;
 <a href="#m_sending_disabled">&nbsp;sending_disabled&nbsp;</a>&nbsp;
+<a href="#m_signal_quality_ber_ignore">&nbsp;signal_quality_ber_ignore&nbsp;</a>&nbsp;
 <a href="#m_smsc">&nbsp;smsc&nbsp;</a>&nbsp;
 <a href="#m_smsc_pdu">&nbsp;smsc_pdu&nbsp;</a>&nbsp;
 <a href="#m_socket_connection_alarm_after">&nbsp;socket_connection_alarm_after&nbsp;</a>&nbsp;
@@ -229,6 +235,7 @@ All modem settings:
 <a href="#m_unexpected_input_is_trouble">&nbsp;unexpected_input_is_trouble&nbsp;</a>&nbsp;
 <a href="#m_using_routed_status_report">&nbsp;using_routed_status_report&nbsp;</a>&nbsp;
 <a href="#m_ussd_convert">&nbsp;ussd_convert&nbsp;</a>&nbsp;
+<a href="#m_verify_pdu">&nbsp;verify_pdu&nbsp;</a>&nbsp;
 <a href="#m_voicecall_clcc">&nbsp;voicecall_clcc&nbsp;</a>&nbsp;
 <a href="#m_voicecall_cpas">&nbsp;voicecall_cpas&nbsp;</a>&nbsp;
 <a href="#m_voicecall_hangup_ath">&nbsp;voicecall_hangup_ath&nbsp;</a>&nbsp;
@@ -685,6 +692,25 @@ Defines if linefeeds are removed from the modem response.
 Available from version >= 3.1.7. Specifies a format for date string logging.
 See <i>man strftime</i> for usage details.
 </p>
+<p>
+After version >= 3.1.14 this setting can have special keywords included: <i>timeus</i> or <i>timems</i>.
+Keywords are replaced with a current value of microseconds or milliseconds.
+</p>
+
+<p>
+<i><b><a name="g_logtime_ms">logtime_ms</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+<i><b><a name="g_logtime_us">logtime_us</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.14.
+With these settings the timestamp in the log file can have microseconds or milliseconds shown.
+These settings can be used when a default format for timestamp is in use.
+Value is shown after seconds and is delimited with a dot.
+</p>
+<p>
+If <i>logtime_format</i> is defined, these settings have no effect.
+Milliseconds or microseconds can be included in customized <i>logtime_format</i> using keywords <i>timeus</i> or <i>timems</i>.
+</p>
 
 <p>
 <i><b><a name="g_log_unmodified">log_unmodified</a> = yes/no</b></i><br>
@@ -788,6 +814,13 @@ Path of the Sent Folder. Delete this line, if you do not want to keep copies of 
 <font size="1">Default value: <i>/bin/sh</i></font><br>
 Available from version >= 3.1.5.
 Defines which shell is used to run eventhandler and other external scripts.
+</p>
+
+<p>
+<i><b><a name="g_shell_test">shell_test</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i></font><br>
+Available from version >= 3.1.14.
+When <i>executable_check</i> is enabled, testing of the <i>shell</i> can be omitted with this setting.
 </p>
 
 <p>
@@ -1331,6 +1364,25 @@ See more details in the global part.
 </p>
 
 <p>
+<i><b><a name="m_loglevel_lac_ci">loglevel_lac_ci</a> = number/word</b></i><br>
+<font size="1">Default value: <i>LOG_INFO</i>.</font><br>
+Available from version >= 3.1.14.
+Sets the verbosity of logging the <i>Location area code</i> and <i>Cell ID</i> and their changes.
+This requires that AT+CREG? returns location information.
+It is automatically enabled by <i>pre_init</i> using a command <i>CREG=2</i>.
+After the Location are code or Cell ID changes, quality of signal is also logged.
+This feature can be disabled with the setting which is more than current loglevel, for example <i>8</i>.
+</p>
+
+<p>
+<i><b><a name="m_log_not_registered_after">log_not_registered_after</a> = number</b></i><br>
+<font size="1">Default value: <i>0</i>.</font><br>
+Available from version >= 3.1.14.
+If it's known that the modem gives "not registered" after a message is sent or received,
+with this setting number of log messages can be avoided.
+</p>
+
+<p>
 <i><b><a name="m_max_continuous_sending">max_continuous_sending</a> = number</b></i><br>
 <font size="1">Default value: <i>300 (5 min)</i>.</font><br>
 Available from version >= 3.1.5.
@@ -1736,6 +1788,15 @@ This does not have an effect to the incoming messsages.
 </p>
 
 <p>
+<i><b><a name="m_signal_quality_ber_ignore">signal_quality_ber_ignore</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.14.
+Some devices do not support <i>Bit Error Rate</i> when signal quality is asked, and this always provides
+"Bit Error Rate: not known or not detectable" to the log line and to the status file.
+With this setting <i>ber</i> can be ignored.
+</p>
+
+<p>
 <i><b><a name="m_smsc_pdu">smsc_pdu</a> = yes/no</b></i><br>
 <font size="1">Default value: <i>no</i>.</font><br>
 Available from version >= 3.1.12.
@@ -1866,6 +1927,18 @@ Possible values are:<br>
 </table>
 <p>Decoded text is appended to the original answer with two slashes and one space character.
 </p>
+</p>
+
+<p>
+<i><b><a name="m_verify_pdu">verify_pdu</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Available from version >= 3.1.14.
+This setting is for testing purposes.
+When trying to send SMS and modem does not accept the PDU, there may be a communication problem which breaks the sent PDU.
+With this setting smsd changes "echo on", and verifies the string which is echoed back after the PDU was sent.
+In case of mismatch "Verify PDU: ERROR" is printed to the log and also both sent and received strings are logged.
+In case of success "Verify PDU: OK" is printed to the log.
+After the verification is done, "echo" is changed back to "off".
 </p>
 
 <p>

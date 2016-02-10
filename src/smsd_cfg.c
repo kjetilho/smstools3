@@ -340,6 +340,10 @@ void initcfg()
     snprintf(devices[i].telnet_login_prompt_ignore, sizeof(devices[i].telnet_login_prompt_ignore), "%s", TELNET_LOGIN_PROMPT_IGNORE_DEFAULT);
     devices[i].telnet_password[0] = 0;
     snprintf(devices[i].telnet_password_prompt, sizeof(devices[i].telnet_password_prompt), "%s", TELNET_PASSWORD_PROMPT_DEFAULT);
+    devices[i].signal_quality_ber_ignore = 0;
+    devices[i].verify_pdu = 0;
+    devices[i].loglevel_lac_ci = 6;
+    devices[i].log_not_registered_after = 0;
   }
   startup_err_str = NULL;
   startup_err_count = 0;
@@ -352,7 +356,11 @@ void initcfg()
   strcpy(no_word, "no");
 
   snprintf(datetime_format, sizeof(datetime_format), "%s", DATETIME_DEFAULT);
-  snprintf(logtime_format, sizeof(logtime_format), "%s", LOGTIME_DEFAULT);
+
+  // 3.1.14:
+  //snprintf(logtime_format, sizeof(logtime_format), "%s", LOGTIME_DEFAULT);
+  *logtime_format = 0;
+
   snprintf(date_filename_format, sizeof(date_filename_format), "%s", DATE_FILENAME_DEFAULT);
 
   enable_smsd_debug = 0;
@@ -365,6 +373,12 @@ void initcfg()
   use_linux_ps_trick = 0;
 #endif
 
+  // 3.1.14:
+  logtime_us = 0;
+  logtime_ms = 0;
+
+  // 3.1.14:
+  shell_test = 1;
 }
 
 char *ask_value(char *section, char *name, char *value)
@@ -894,7 +908,39 @@ int readcfg()
           startuperror(yesno_error, name, value);
       }
       else
+      if (strcasecmp(name,"logtime_us")==0)
+      {
+        if ((logtime_us = yesno_check(ask_value(0, name, value))) == -1)
+          startuperror(yesno_error, name, value);
+      }
+      else
+      if (strcasecmp(name,"logtime_ms")==0)
+      {
+        if ((logtime_ms = yesno_check(ask_value(0, name, value))) == -1)
+          startuperror(yesno_error, name, value);
+      }
+      else
+      if (strcasecmp(name,"shell_test")==0)
+      {
+        if ((shell_test = yesno_check(ask_value(0, name, value))) == -1)
+          startuperror(yesno_error, name, value);
+      }
+      else
         startuperror("Unknown global setting: %s\n", name);
+    }
+
+    // 3.1.14:
+    if (*logtime_format == 0)
+    {
+      snprintf(logtime_format, sizeof(logtime_format), "%s", LOGTIME_DEFAULT);
+
+      if (strlen(logtime_format) < sizeof(logtime_format) - 7)
+      {
+        if (logtime_us)
+          strcat(logtime_format, ".timeus");
+        else if (logtime_ms)
+          strcat(logtime_format, ".timems");
+      }
     }
 
     /* read queue-settings */
@@ -1615,6 +1661,24 @@ int readcfg()
                 else
                 if (strcasecmp(name,"telnet_password_prompt")==0)
                   strcpy2(NEWDEVICE.telnet_password_prompt, ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"signal_quality_ber_ignore")==0)
+                {
+    	          if ((NEWDEVICE.signal_quality_ber_ignore = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
+                    startuperror(yesno_error, name, value);
+                }
+                else
+                if (strcasecmp(name,"verify_pdu")==0)
+                {
+    	          if ((NEWDEVICE.verify_pdu = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
+                    startuperror(yesno_error, name, value);
+                }
+                else
+                if (strcasecmp(name,"loglevel_lac_ci")==0)
+                  NEWDEVICE.loglevel_lac_ci=set_level(NEWDEVICE.name, name, value);
+                else
+                if (strcasecmp(name,"log_not_registered_after")==0)
+	          NEWDEVICE.log_not_registered_after=atoi(ask_value(NEWDEVICE.name, name, value));
                 else
 	          startuperror("Unknown setting for modem %s: %s\n", NEWDEVICE.name, name);
               }
@@ -2411,7 +2475,7 @@ int startup_check(int result)
   {
     if (!is_executable(shell))
       wrlogfile(&result, "Shell %s does not exist or is not executable for smsd.", shell);
-    else
+    else if (shell_test)
     {
       char *error = 0;
       char tmp_data[PATH_MAX];
@@ -2426,7 +2490,10 @@ int startup_check(int result)
       else
       {
         close(fd);
-        sprintf(tmp_script, "%s/smsd_script.XXXXXX", "/tmp");
+
+        // 3.1.14: Use incoming directory instead of /tmp which may be mounted noexec:
+        sprintf(tmp_script, "%s/smsd_script.XXXXXX", d_incoming);
+
         if ((fd = mkstemp(tmp_script)) == -1)
           error = "Cannot create test script file.";
         else

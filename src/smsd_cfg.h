@@ -226,6 +226,10 @@ typedef struct
   char telnet_login_prompt_ignore[64];
   char telnet_password[64];
   char telnet_password_prompt[64];
+  int signal_quality_ber_ignore; // 3.1.14.
+  int verify_pdu; // 3.1.14.
+  int loglevel_lac_ci; // 3.1.14.
+  int log_not_registered_after; // 3.1.14.
 } _device;
 
 // NOTE for regular run intervals: effective value is at least delaytime.
@@ -379,7 +383,14 @@ char logtime_format[SIZE_HEADER]; // 3.1.7: strftime format string for logging t
 char date_filename_format[SIZE_HEADER]; // 3.1.7: strftime format string for date_filename
 int translate_incoming;         // 0 if incoming message headers are NOT transtaled.
 
-// Next two are ffor debugging purposes:
+// 3.1.14:
+int logtime_us;
+int logtime_ms;
+
+// 3.1.14:
+int shell_test;
+
+// Next two are for debugging purposes:
 int enable_smsd_debug;
 char smsd_debug[SIZE_SMSD_DEBUG]; // Header of an outgoing message file.
 

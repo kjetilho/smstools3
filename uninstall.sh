@@ -11,6 +11,7 @@ echo "This script deletes also the config file and stored messages."
 echo "Are you sure to proceed? [yes/no]"
 read answer
 if [ "$answer" != "yes" ]; then
+  echo "Did NOT proceed, exiting..."
   exit 1
 fi
 
