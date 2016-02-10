@@ -233,7 +233,7 @@ int exec_system(char *command, char *info)
               if (time(0) -start_time > 60)
                 break;
               sendsignal2devices(SIGCONT);
-              sleep(5);
+              t_sleep(5);
             }
 
             if (*shared_buffer)
@@ -723,7 +723,7 @@ LSYeeuioCOoAa Aa E AONUS aonua e
     text[i] = 0;
   for (i = 0; text[i] != 0; i++)
   {
-    if (!isalnum(text[i]) && !strchr(allowed_chars, text[i]))
+    if (!isalnumc(text[i]) && !strchr(allowed_chars, text[i]))
     {
       if ((p = strchr(replace_from, text[i])))
         text[i] = replace_to[p -replace_from];
@@ -815,7 +815,10 @@ int change_headers(char *filename, char *remove_headers, char *add_buffer, char 
   vsnprintf(new_headers, sizeof(new_headers), add_headers, argp);
   va_end(argp);
 
-  sprintf(tmp_filename,"%s.XXXXXX", filename);
+  // 3.1.12:
+  //sprintf(tmp_filename,"%s.XXXXXX", filename);
+  sprintf(tmp_filename,"/tmp/smsd.XXXXXX");
+
   close(mkstemp(tmp_filename));
   unlink(tmp_filename);
   if (!(fptmp = fopen(tmp_filename, "w")))
@@ -1588,6 +1591,13 @@ void mainspooler()
   writelogfile(LOG_NOTICE, 1, "Outgoing file checker has started. PID: %i.", (int)getpid());
   flush_smart_logging();
 
+  // 3.1.12:
+  sprintf(cmdline, "All PID's: %i", (int)getpid());
+  for (i = 0; i < NUMBER_OF_MODEMS; i++)
+    if (device_pids[i] > 0)
+      sprintf(strchr(cmdline, 0), ",%i", (int)device_pids[i]);
+  writelogfile0(LOG_DEBUG, 0, cmdline);
+
   last_regular_run = 0; // time(0);
   last_stats = time(0);
   last_status = time(0);
@@ -1833,7 +1843,7 @@ void mainspooler()
     // 3.1.7:
     //sleep(1);
     if (delaytime_mainprocess != 0 && !terminate && !break_workless_delay)
-      sleep(1);
+      t_sleep(1);
 
   }
 }
@@ -1856,7 +1866,7 @@ void deletesms(int sim) /* deletes the selected sms from the sim card */
   {
     writelogfile(LOG_INFO, 0, "Deleting message %i", sim);
     sprintf(command,"AT+CMGD=%i\r", sim);
-    put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+    put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
   }
 }
 
@@ -1884,7 +1894,7 @@ void deletesms_list(char *memory_list)
       {
         writelogfile(LOG_INFO, 0, "Deleting message %i", sim);
         sprintf(command,"AT+CMGD=%i\r", sim);
-        put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
       }
     }
   }
@@ -1901,13 +1911,19 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
   // 3.1.5: GMGL list needs much more space: using global buffer.
   //char answer[500];
   char *answer = check_memory_buffer;
-  int size_answer = SIZE_CHECK_MEMORY_BUFFER;
+  // 3.1.12: Use allocated memory:
+  //int size_answer = SIZE_CHECK_MEMORY_BUFFER;
+  int size_answer = (int)check_memory_buffer_size;
+
   char* start;
   char* end;
   char tmp[100];
   char *p;
   char *pos;
   int i;
+
+  if (!answer)
+    return 0;
 
   (void) delete_list_size;        // 3.1.7: remove warning.
   // Set default values in case that the modem does not support the +CPMS command
@@ -1993,9 +2009,13 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
     *buffer = 0;
 
     sprintf(tmp, "AT+CMGL=%s\r", DEVICE.cmgl_value);
+
     // 3.1.5: Empty list gives OK answer without +CMGL prefix:
     log_single_lines = 0;
-    put_command(tmp, answer, size_answer, 1, "(OK)|(ERROR)");
+
+    // 3.1.12: With large number of messages and slow modem, much longer timeout than "1" is required.
+    put_command(tmp, answer, size_answer, 10, EXPECT_OK_ERROR);
+
     log_single_lines = save_log_single_lines;
 
     pos = answer;
@@ -2425,7 +2445,7 @@ int readphonecalls()
     writelogfile(LOG_INFO, 0, "Reading phonecall entries");
 
     sprintf(command,"AT+CPBS=\"%s\"\r", "MC");
-    put_command(command, answer, sizeof(answer), 1, "(ERROR)|(OK)");
+    put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
     if (strstr(answer, "ERROR"))
     {
       if (++errors >= PB_MAX_ERRORS)
@@ -2443,7 +2463,7 @@ int readphonecalls()
 
         writelogfile(LOG_INFO, 0, "Checking phonecall limits (once)");
         sprintf(command,"AT+CPBR=?\r");
-        put_command(command, answer, sizeof(answer), 1, "(ERROR)|(OK)");
+        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
         if (strstr(answer, "ERROR"))
         {
           if (++errors >= PB_MAX_ERRORS)
@@ -2479,7 +2499,7 @@ int readphonecalls()
           return 0;
 
         sprintf(command,"AT+CPBR=1,%i\r", index_max);
-        put_command(command, answer, sizeof(answer), 1, "(ERROR)|(OK)");
+        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
         if (strstr(answer, "ERROR"))
         {
           if (++errors >= PB_MAX_ERRORS)
@@ -2608,7 +2628,7 @@ int readphonecalls()
                   p = "AT^SPBD=\"MC\"";
 
                 sprintf(command, "%s\r", p);
-                put_command(command, answer, sizeof(answer), 1, "(ERROR)|(OK)");
+                put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
                 count = 0;
 
                 if (strstr(answer, "ERROR"))
@@ -2625,7 +2645,7 @@ int readphonecalls()
             while (count && result != -1)
             {
               sprintf(command, "AT+CPBW=%i\r", count);
-              put_command(command, answer, sizeof(answer), 1, "(ERROR)|(OK)");
+              put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
               count--;
 
               if (strstr(answer, "ERROR"))
@@ -3489,7 +3509,7 @@ int receivesms(int* quick, int only1st)
         }
 
         writelogfile(LOG_INFO, 0, "Changing memory");
-        put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 
         // 3.1.9:
         if (strstr(answer, "ERROR"))
@@ -3718,7 +3738,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
   if (report == 1 && !DEVICE.incoming)
     writelogfile(LOG_NOTICE, 0, "Cannot receive status report because receiving is disabled");
 
-  if ((quick==0 || *smsc) && DEVICE.sending_disabled == 0)
+  if ((quick==0 || (*smsc && !DEVICE.smsc_pdu)) && DEVICE.sending_disabled == 0)
   {
     int i;
 
@@ -3753,7 +3773,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
   }
 
   // Compose the modem command
-  make_pdu(to,text,textlen,alphabet,flash,report,with_udh,udh_data,DEVICE.mode,pdu,validity, replace_msg, system_msg, to_type);
+  make_pdu(to,text,textlen,alphabet,flash,report,with_udh,udh_data,DEVICE.mode,pdu,validity, replace_msg, system_msg, to_type, smsc);
   if (strcasecmp(DEVICE.mode,"old")==0)
     sprintf(command,"AT+CMGS=%i\r",(int)strlen(pdu)/2);
   else
@@ -3785,13 +3805,20 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
      )
   {
     writelogfile(LOG_NOTICE, 1, "Test run, NO actual sending:%s from %s to %s", partstr, from, to);
-    sleep(1);
-    writelogfile(LOG_NOTICE, 1, "PDU to %s: %s\n%s", to, command, pdu);
+    writelogfile(LOG_DEBUG, 1, "PDU to %s: %s\n%s", to, command, pdu);
+
+    // 3.1.12: Simulate sending time
+    //sleep(1);
+    t_sleep(4 + getrand(10));
 
     strcpy(messageids, "1");
 
+    update_message_counter(1, DEVICE.name);
+
     STATISTICS->usage_s+=time(0)-start_time;
     STATISTICS->succeeded_counter++;
+
+    writelogfile(LOG_NOTICE, 0, "SMS sent, Message_id: %s, To: %s, sending time %i sec.", messageids, to, time(0) -start_time);
 
     flush_smart_logging();
 
@@ -3807,7 +3834,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
       put_command(command, answer, sizeof(answer), 2, "(>)|(ERROR)");
       // Send message if command was successful
       if (!strstr(answer,"ERROR"))
-        put_command(command2, answer ,sizeof(answer), 12, "(OK)|(ERROR)");
+        put_command(command2, answer ,sizeof(answer), 12, EXPECT_OK_ERROR);
 
       // Check answer
       if (strstr(answer,"OK"))
@@ -4031,7 +4058,7 @@ int send1sms(int* quick, int* errorcounter)
                 &validity, &voicecall, &hex, &replace_msg, macros, &system_msg, &to_type);
 
   // SMSC setting is allowed only if there is smsc set in the config file:
-  if (DEVICE.smsc[0] == 0)
+  if (DEVICE.smsc[0] == 0 && !DEVICE.smsc_pdu)
     smsc[0] = 0;
 
   // If the checkhandler has moved this message, some things are probably not checked:
@@ -4129,7 +4156,7 @@ int send1sms(int* quick, int* errorcounter)
         // 3.1.4:
         if (filename_preview > 0 && alphabet < 1 && !system_msg)
         {
-          if ((filename_preview_buffer = malloc(textlen +1)))
+          if ((filename_preview_buffer = (char *)malloc(textlen +1)))
           {
             memcpy(filename_preview_buffer, text, textlen);
             filename_preview_buffer[textlen] = 0;
@@ -4321,7 +4348,7 @@ int send1sms(int* quick, int* errorcounter)
   // parts can now be 0 if there is some problems,
   // fail_text and success is also set.
 
-  // Try to send each part  
+  // Try to send each part
   if (parts > 0)
     writelogfile(LOG_INFO, 0, "I have to send %i short message for %s",parts,filename); 
 #ifdef DEBUGMSG
@@ -4405,6 +4432,8 @@ int send1sms(int* quick, int* errorcounter)
       // 3.1.7:
       int saved_detect_message_routing = DEVICE.detect_message_routing;
       int saved_detect_unexpected_input = DEVICE.detect_unexpected_input;
+      // 3.1.12:
+      int call_lost = 0;
 
       DEVICE.detect_message_routing = 0;
       DEVICE.detect_unexpected_input = 0;
@@ -4429,7 +4458,7 @@ int send1sms(int* quick, int* errorcounter)
         part_text[part_text_length] = '\0';
         cutspaces(part_text);
         for (i = 0; part_text[i]; i++)
-          part_text[i] = toupper(part_text[i]);
+          part_text[i] = toupper((int)part_text[i]);
 
         // Currently the starting header is optional:
         if (strncmp(part_text, "TONE:", 5) == 0)
@@ -4441,7 +4470,7 @@ int send1sms(int* quick, int* errorcounter)
           while (is_blank(*p2))
             p2++;
           p3 = p2;
-          while (isdigit(*p3))
+          while (isdigitc(*p3))
             p3++;
           *p3 = 0;
           wait_delay = atoi(p2);
@@ -4469,14 +4498,23 @@ int send1sms(int* quick, int* errorcounter)
         else
           sprintf(command, "ATD%s;\r", to);
 
-        if (DEVICE.voicecall_cpas)
+        if (DEVICE.voicecall_cpas || DEVICE.voicecall_clcc)
         {
           // OK is returned after ATD command. (BenQ M32)
           // Dest phone is off: after 25 sec "NO ANSWER"
           // Dest phone does not answer: after 1 min 40 sec "NO ANSWER"
           // Dest phone hooks: after couple of seconds "BUSY"
-          // Ringing: AT+CPAS returns +CPAS 0
-          // Answered: AT+CPAS returns +CPAS 4
+
+          // AT+CPAS return codes:
+          // 0: ready (ME allows commands from TA/TE)
+          // 1: unavailable (ME does not allow commands from TA/TE)
+          // 2: unknown (ME is not guaranteed to respond to instructions)
+          // 3: ringing (ME is ready for commands from TA/TE, but the ringer is active)
+          // 4: call in progress (ME is ready for commands from TA/TE, but a call is in progress)
+          // 5: asleep (ME is unable to process commands from TA/TE because it is in a low functionality state) Also all other values below 128 are reserved.
+
+          // 3.1.12:
+          int was_ringing = 0;
 
           wait_time = time(0);
 
@@ -4485,7 +4523,7 @@ int send1sms(int* quick, int* errorcounter)
           for (;;)
           {
             change_crlf(cut_emptylines(cutspaces(strcpy(voicecall_result, answer))), ' ');
-            usleep(500000);
+            usleep_until(time_usec() + 500000);
 
             if (strstr(answer, "NO CARRIER") ||
               strstr(answer, "BUSY") ||
@@ -4497,8 +4535,80 @@ int send1sms(int* quick, int* errorcounter)
               break;
             }
 
-            if (strstr(answer, "+CPAS:") && strstr(answer, "4"))
-              break;
+            if (DEVICE.voicecall_cpas && strstr(answer, "+CPAS:"))
+            {
+              if (strstr(answer, "4"))
+                break;
+
+              if (!was_ringing && strstr(answer, "3"))
+                was_ringing = 1;
+
+              if (was_ringing && strstr(answer, "0"))
+              {
+                strcpy(voicecall_result, "Hangup");
+                writelogfile(LOG_INFO, 0, "The result of a voice call was %s", voicecall_result);
+                *answer = 0;
+                call_lost = 1;
+                break;
+              }
+            }
+
+            // 3.1.12:
+            if (DEVICE.voicecall_clcc)
+            {
+              char tmp[64];
+              int break_for = 0;
+              int found_clcc = 0;
+
+              p = strstr(answer, "+CLCC:");
+              while (p)
+              {
+                // Check direction, 0 = Mobile Originated:
+                getfield(p, 2, tmp, sizeof(tmp));
+                if (!strcmp(tmp, "0"))
+                {
+                  // Check the number. Some modems do not show the + sign:
+                  getfield(p, 6, tmp, sizeof(tmp));
+                  if (!strcmp(to, (*tmp == '+')? tmp + 1 : tmp))
+                  {
+                    found_clcc = 1;
+
+                    // State of the call (MO):
+                    // 0 = Active.
+                    // ( 1 = Held. )
+                    // 2 = Dialing.
+                    // 3 = Alerting.
+
+                    getfield(p, 3, tmp, sizeof(tmp));
+                    i = atoi(tmp);
+
+                    if (i == 0)
+                    {
+                      strcpy(answer, "OK");
+                      break_for = 1;
+                      break;
+                    }
+
+                    if (!was_ringing && (i == 2 || i == 3))
+                      was_ringing = 1;
+                  }
+                }
+
+                p = strstr(p +1, "+CLCC:");
+              }
+
+              if (break_for)
+                break;
+
+              if (was_ringing && !found_clcc)
+              {
+                strcpy(voicecall_result, "Hangup");
+                writelogfile(LOG_INFO, 0, "The result of a voice call was %s", voicecall_result);
+                *answer = 0;
+                call_lost = 1;
+                break;
+              }
+            }
 
             if (time(0) > wait_time + 150)
             {
@@ -4508,7 +4618,7 @@ int send1sms(int* quick, int* errorcounter)
               break;
             }
 
-            put_command("AT+CPAS\r", answer, sizeof(answer), 24, expect);
+            put_command((DEVICE.voicecall_cpas)? "AT+CPAS\r" : "AT+CLCC\r", answer, sizeof(answer), 24, expect);
           }
         }
         else
@@ -4558,7 +4668,7 @@ int send1sms(int* quick, int* errorcounter)
                 }
               }
 
-              sleep(1);
+              t_sleep(1);
             }
             while (time(0) < wait_time +wait_delay);
             change_crlf(cut_emptylines(cutspaces(strcpy(voicecall_result, answer))), ' ');
@@ -4627,25 +4737,28 @@ int send1sms(int* quick, int* errorcounter)
 
           for (i = 0; (i < count) && tones; i++)
           {
-            sleep(3);
+            t_sleep(3);
             put_command(command, answer, sizeof(answer), tones *0.39 +1, expect);
             if (strstr(answer, "ERROR"))
               if (i > 0)
                 break;
           }
-          sleep(1);
+          t_sleep(1);
         }
 
-        // 3.1.5beta9:
-        if (DEVICE.voicecall_hangup_ath == 1 ||
-            (DEVICE.voicecall_hangup_ath == -1 && voicecall_hangup_ath == 1))
-          sprintf(command, "ATH\r");
-        else
-          sprintf(command, "AT+CHUP\r");
+        if (!call_lost)
+        {
+          if (DEVICE.voicecall_hangup_ath == 1 ||
+              (DEVICE.voicecall_hangup_ath == -1 && voicecall_hangup_ath == 1))
+            sprintf(command, "ATH\r");
+          else
+            sprintf(command, "AT+CHUP\r");
 
-        put_command(command, answer, sizeof(answer), 1, expect);
-        if (!(*voicecall_result))
-          change_crlf(cut_emptylines(cutspaces(strcpy(voicecall_result, answer))), ' ');
+          put_command(command, answer, sizeof(answer), 1, expect);
+          if (!(*voicecall_result))
+            change_crlf(cut_emptylines(cutspaces(strcpy(voicecall_result, answer))), ' ');
+        }
+
         success = 1;
       }
 
@@ -5073,7 +5186,7 @@ int cmd_to_modem(
 	if (cmd_number == 1 && DEVICE.needs_wakeup_at)
 	{
 		put_command("AT\r", 0, 0, 1, 0);
-		usleep(100000);
+		usleep_until(time_usec() + 100000);
 		read_from_modem(answer, sizeof(answer), 2);
 	}
 
@@ -5081,14 +5194,28 @@ int cmd_to_modem(
 	{
 		sprintf(cmd, "%s\r", command);
 		// 3.1.5: Special case: AT+CUSD, wait USSD message:
-		//put_command(*modem, device, cmd, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+		//put_command(*modem, device, cmd, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 		if (!strncasecmp(command, "AT+CUSD", 7) && strlen(command) > 9)
 		{
 			is_ussd++;
 			put_command(cmd, answer, sizeof(answer), 3, "(\\+CUSD:)|(ERROR)");
 		}
 		else
-			put_command(cmd, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+		// 3.1.12:
+		if (*cmd == '[' && strchr(cmd, ']'))
+		{
+			char *expect;
+
+			if ((expect = strdup(cmd + 1)))
+			{
+				*(strchr(expect, ']')) = 0;
+				put_command(strchr(cmd, ']') + 1, answer, sizeof(answer), 1, expect);
+				free(expect);
+			}
+		}
+		else
+		// -------
+			put_command(cmd, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 
 		if (*answer)
 		{
@@ -5200,7 +5327,7 @@ int cmd_to_modem(
 				char te_charset[41];
 				size_t n, i;
 
-				put_command("AT+CSCS?\r", te_charset, sizeof(te_charset), 1, "(OK)|(ERROR)");
+				put_command("AT+CSCS?\r", te_charset, sizeof(te_charset), 1, EXPECT_OK_ERROR);
 				cut_ctrl(cutspaces(te_charset));
 				if (!(p = strchr(te_charset, '"')))
 					*te_charset = 0;
@@ -5267,7 +5394,7 @@ int cmd_to_modem(
 					if (log_retry > 0)
 					{
 						i = getrand(100);
-						usleep(i * 10);
+						usleep_until(time_usec() + i * 10);
 					}
 					else
 						writelogfile(LOG_ERR, 0, "Cannot open %s. %s", DEVICE.dev_rr_logfile, strerror(errno));
@@ -5345,8 +5472,11 @@ int run_rr()
     {
       while (fgets(st, sizeof(st), fp))
       {
-        cutspaces(st);
-        cut_ctrl(st);
+        // 3.1.12: remove only linebreaks:
+        //cutspaces(st);
+        //cut_ctrl(st);
+        cut_crlf(st);
+
         if (*st && *st != '#')
         {
           if (!cmd_to_modem(st, ++cmd_number))
@@ -5528,6 +5658,10 @@ void do_ic_purge()
 int send_startstring()
 {
 
+  // 3.1.12:
+  if (DEVICE.modem_disabled)
+    return 0;
+
   if (DEVICE.startstring[0])
   {
     char answer[500];
@@ -5539,10 +5673,10 @@ int send_startstring()
     do
     {
       retries++;
-      put_command(DEVICE.startstring, answer, sizeof(answer), 2, "(OK)|(ERROR)");
+      put_command(DEVICE.startstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
       if (strstr(answer, "ERROR"))
         if (retries < 2)
-          sleep(1);
+          t_sleep(1);
     }
     while (retries < 2 && !strstr(answer, "OK"));
     if (strstr(answer, "OK") == 0)
@@ -5569,6 +5703,10 @@ int send_startstring()
 int send_stopstring()
 {
 
+  // 3.1.12:
+  if (DEVICE.modem_disabled)
+    return 0;
+
   if (DEVICE.stopstring[0])
   {
     char answer[500];
@@ -5584,10 +5722,10 @@ int send_stopstring()
       do
       {
         retries++;
-        put_command(DEVICE.stopstring, answer, sizeof(answer), 2, "(OK)|(ERROR)");
+        put_command(DEVICE.stopstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
         if (strstr(answer, "ERROR"))
           if (retries < 2)
-            sleep(1);
+            t_sleep(1);
       }
       while (retries < 2 && !strstr(answer, "OK"));
       if (strstr(answer, "OK") == 0)
@@ -5677,7 +5815,7 @@ int check_suspend(int initialized)
 
           return 1;
         }
-        sleep(1);
+        t_sleep(1);
       }
 
       continue;
@@ -5823,11 +5961,24 @@ void devicespooler()
   last_rr = 0;
   last_ic_purge = 0;
 
+  // 3.1.12: Allocate memory for check_memory_buffer:
+  if (DEVICE.incoming)
+  {
+    check_memory_buffer_size = select_check_memory_buffer_size();
+    if (!(check_memory_buffer = (char *)malloc(check_memory_buffer_size)))
+    {
+      writelogfile0(LOG_CRIT, 1, tb_sprintf("Did not get memory for check_memory_buffer (%i). Stopping.", check_memory_buffer_size));
+      alarm_handler0(LOG_CRIT, tb);
+      return;
+    }
+  }
+
   if (send_startstring())
     return;
 
   // 3.1.1: If a modem is used for sending only, it's first initialized.
-  if (DEVICE.outgoing && !DEVICE.incoming)
+  // 3.1.12: Check if a modem is disabled.
+  if (DEVICE.outgoing && !DEVICE.incoming && !DEVICE.modem_disabled)
   {
     if (initialize_modem_sending(""))
     {
@@ -5842,6 +5993,9 @@ void devicespooler()
   // Copy device value to global value:
   if (DEVICE.max_continuous_sending != -1)
     max_continuous_sending = DEVICE.max_continuous_sending;
+
+  if (max_continuous_sending < 0)
+    max_continuous_sending = 0;
 
   flush_smart_logging();
 
@@ -6067,7 +6221,7 @@ void devicespooler()
           }
         }
 
-        sleep(1);
+        t_sleep(1);
       }
       workless_delay = 0;
     }
@@ -6230,6 +6384,8 @@ int main(int argc,char** argv)
   outgoing_pdu_store = NULL;
   routed_pdu_store = NULL;
   getfile_err_store = NULL;
+  check_memory_buffer = NULL;
+  check_memory_buffer_size = 0;
   for (i = 0; i < NUMBER_OF_MODEMS; i++)
     device_pids[i] = 0;
   parsearguments(argc,argv);
@@ -6588,14 +6744,14 @@ int main(int argc,char** argv)
               do
               {
                 retries++;
-                put_command("AT\r", answer, sizeof(answer), 1, "(OK)|(ERROR)");
+                put_command("AT\r", answer, sizeof(answer), 1, EXPECT_OK_ERROR);
                 if (!strstr(answer, "OK") && !strstr(answer, "ERROR"))
                 {
                   if (terminate)
                     break;
 
                   // if Modem does not answer, try to send a PDU termination character
-                  put_command("\x1A\r", answer, sizeof(answer), 1, "(OK)|(ERROR)");
+                  put_command("\x1A\r", answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 
                   if (terminate)
                     break;
@@ -6610,16 +6766,16 @@ int main(int argc,char** argv)
                 exit(127);
               }
 
-              put_command("AT+CIMI\r", answer, SIZE_IDENTITY, 1,"(OK)|(ERROR)");
+              put_command("AT+CIMI\r", answer, SIZE_IDENTITY, 1,EXPECT_OK_ERROR);
 
-              while (*answer && !isdigit(*answer))
+              while (*answer && !isdigitc(*answer))
                 strcpyo(answer, answer +1);
 
               if (strstr(answer, "ERROR"))
               {
-                put_command("AT+CGSN\r", answer, SIZE_IDENTITY, 1, "(OK)|(ERROR)");
+                put_command("AT+CGSN\r", answer, SIZE_IDENTITY, 1, EXPECT_OK_ERROR);
 
-                while (*answer && !isdigit(*answer))
+                while (*answer && !isdigitc(*answer))
                   strcpyo(answer, answer +1);
               }
 

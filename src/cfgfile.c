@@ -118,7 +118,7 @@ int splitline( char*  source,
 
 int gotosection(FILE* file,  char*  name)
 {
-  char line[PATH_MAX+32];
+  char line[4096 +32];
   char* posi;
 
   fseek(file,0,SEEK_SET);
@@ -144,7 +144,7 @@ int my_getline(FILE* file,
             char*  name,  int size_name,
 	    char*  value,  int size_value)
 {
-  char line[PATH_MAX+32];
+  char line[4096 +32];
 
   while (fgets(line,sizeof(line),file))
   {

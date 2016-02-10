@@ -38,7 +38,7 @@ color: red;
 <a href="index.html">Home</a>
 <h3>AT Commands used in SMS Server Tools 3</h3>
 <!-- START --><p>
-Last updated: <b>21.06.2010</b>.<br>
+Last updated: <b>02.09.2010</b>.<br>
 Applies for the version of smsd: <b>3.2beta0</b>.
 </p>
 <p>
@@ -52,19 +52,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT&nbsp;</td>
     <td valign=top>&nbsp;Checking if a modem is alive.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT&nbsp;</td>
-    <td valign=top>&nbsp;Checking if a modem is alive.&nbsp;</td>
     <td valign=top>&nbsp;initmodem,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CGSN&nbsp;</td>
-    <td valign=top>&nbsp;Retrieving identity (IMEI).&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -76,19 +64,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CHUP&nbsp;</td>
     <td valign=top>&nbsp;Ending an incoming call.&nbsp;</td>
-    <td valign=top>&nbsp;put_command,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CHUP&nbsp;</td>
-    <td valign=top>&nbsp;Ending an incoming call.&nbsp;</td>
-    <td valign=top>&nbsp;put_command,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CHUP&nbsp;</td>
-    <td valign=top>&nbsp;Ending a voicecall.&nbsp;</td>
-    <td valign=top>&nbsp;sendsms,&nbsp;smsd.c~&nbsp;</td>
+    <td valign=top>&nbsp;handlephonecall_ring,&nbsp;modem.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -100,19 +76,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CIMI&nbsp;</td>
     <td valign=top>&nbsp;Retrieving identity (IMSI).&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CIMI&nbsp;</td>
-    <td valign=top>&nbsp;Retrieving identity (IMSI).&nbsp;</td>
     <td valign=top>&nbsp;initmodem,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMEE=1&nbsp;</td>
-    <td valign=top>&nbsp;Enable CME result codes.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -120,23 +84,11 @@ Applies for the version of smsd: <b>3.2beta0</b>.
     <td valign=top>&nbsp;Enable CME result codes.&nbsp;</td>
     <td valign=top>&nbsp;initmodem,&nbsp;modem.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMGD=?&nbsp;</td>
-    <td valign=top>&nbsp;Checking for incoming messages.&nbsp;</td>
-    <td valign=top>&nbsp;check_memory,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
   </tr>
   <tr>
     <td valign=top>&nbsp;AT+CMGD=?&nbsp;</td>
     <td valign=top>&nbsp;Checking for incoming messages.&nbsp;</td>
     <td valign=top>&nbsp;check_memory,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMGD=number&nbsp;</td>
-    <td valign=top>&nbsp;Deleting a message.&nbsp;</td>
-    <td valign=top>&nbsp;deletesms_list,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
   </tr>
   <tr>
@@ -148,19 +100,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CMGD=number&nbsp;</td>
     <td valign=top>&nbsp;Deleting a message.&nbsp;</td>
-    <td valign=top>&nbsp;deletesms,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMGD=number&nbsp;</td>
-    <td valign=top>&nbsp;Deleting a message.&nbsp;</td>
     <td valign=top>&nbsp;deletesms,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMGF=0&nbsp;</td>
-    <td valign=top>&nbsp;Selecting PDU mode.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
   </tr>
   <tr>
@@ -172,19 +112,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CMGL=value&nbsp;</td>
     <td valign=top>&nbsp;Checking for incoming messages.&nbsp;</td>
-    <td valign=top>&nbsp;check_memory,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMGL=value&nbsp;</td>
-    <td valign=top>&nbsp;Checking for incoming messages.&nbsp;</td>
     <td valign=top>&nbsp;check_memory,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMGR=number&nbsp;</td>
-    <td valign=top>&nbsp;Reading stored message.&nbsp;</td>
-    <td valign=top>&nbsp;readsim,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
   </tr>
   <tr>
@@ -196,19 +124,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CMGS=number&nbsp;</td>
     <td valign=top>&nbsp;Sending a message.&nbsp;</td>
-    <td valign=top>&nbsp;send_part,&nbsp;smsd.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CMGS=number&nbsp;</td>
-    <td valign=top>&nbsp;Sending a message.&nbsp;</td>
     <td valign=top>&nbsp;send_part,&nbsp;smsd.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CNMA&nbsp;</td>
-    <td valign=top>&nbsp;Sending an acknowledgement.&nbsp;</td>
-    <td valign=top>&nbsp;detect_routed_message,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
   </tr>
   <tr>
@@ -220,31 +136,13 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CPAS&nbsp;</td>
     <td valign=top>&nbsp;Checking phone activity status.&nbsp;</td>
-    <td valign=top>&nbsp;sendsms,&nbsp;smsd.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPAS&nbsp;</td>
-    <td valign=top>&nbsp;Checking phone activity status.&nbsp;</td>
     <td valign=top>&nbsp;sendsms,&nbsp;smsd.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
     <td valign=top>&nbsp;AT+CPBR=1,number&nbsp;</td>
     <td valign=top>&nbsp;Reading missed phonecall entries.&nbsp;</td>
-    <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPBR=1,number&nbsp;</td>
-    <td valign=top>&nbsp;Reading missed phonecall entries.&nbsp;</td>
     <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPBR=?&nbsp;</td>
-    <td valign=top>&nbsp;Checking for phonecall limits.&nbsp;</td>
-    <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -256,19 +154,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CPBS="MC"&nbsp;</td>
     <td valign=top>&nbsp;Selecting a phonebook.&nbsp;</td>
-    <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPBS="MC"&nbsp;</td>
-    <td valign=top>&nbsp;Selecting a phonebook.&nbsp;</td>
     <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPBW=number&nbsp;</td>
-    <td valign=top>&nbsp;Removing processed phonecall entries.&nbsp;</td>
-    <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -280,19 +166,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CPIN?&nbsp;</td>
     <td valign=top>&nbsp;Checking if a PIN is needed.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPIN?&nbsp;</td>
-    <td valign=top>&nbsp;Checking if a PIN is needed.&nbsp;</td>
     <td valign=top>&nbsp;initmodem,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPIN="value"&nbsp;</td>
-    <td valign=top>&nbsp;Entering a PIN.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -300,23 +174,11 @@ Applies for the version of smsd: <b>3.2beta0</b>.
     <td valign=top>&nbsp;Entering a PIN.&nbsp;</td>
     <td valign=top>&nbsp;initmodem,&nbsp;modem.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPMS?&nbsp;</td>
-    <td valign=top>&nbsp;Checking for incoming messages.&nbsp;</td>
-    <td valign=top>&nbsp;check_memory,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
   </tr>
   <tr>
     <td valign=top>&nbsp;AT+CPMS?&nbsp;</td>
     <td valign=top>&nbsp;Checking for incoming messages.&nbsp;</td>
     <td valign=top>&nbsp;check_memory,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CPMS="name"&nbsp;</td>
-    <td valign=top>&nbsp;Selecting a memory.&nbsp;</td>
-    <td valign=top>&nbsp;receivesms,&nbsp;smsd.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
   </tr>
   <tr>
@@ -328,32 +190,14 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CREG?&nbsp;</td>
     <td valign=top>&nbsp;Checking for network registration.&nbsp;</td>
-    <td valign=top>&nbsp;wait_network_registration,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CREG?&nbsp;</td>
-    <td valign=top>&nbsp;Checking for network registration.&nbsp;</td>
     <td valign=top>&nbsp;wait_network_registration,&nbsp;modem.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
     <td valign=top>&nbsp;AT+CSCA="+number"&nbsp;</td>
     <td valign=top>&nbsp;Setting SMSC.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CSCA="+number"&nbsp;</td>
-    <td valign=top>&nbsp;Setting SMSC.&nbsp;</td>
     <td valign=top>&nbsp;initmodem,&nbsp;modem.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.05&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CSCS?&nbsp;</td>
-    <td valign=top>&nbsp;Query of TE character set.&nbsp;</td>
-    <td valign=top>&nbsp;cmd_to_modem,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
     <td valign=top>&nbsp;AT+CSCS?&nbsp;</td>
@@ -364,19 +208,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;AT+CSQ&nbsp;</td>
     <td valign=top>&nbsp;Retrieving signal quality.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+CSQ&nbsp;</td>
-    <td valign=top>&nbsp;Retrieving signal quality.&nbsp;</td>
     <td valign=top>&nbsp;initmodem,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;ATD+number;&nbsp;</td>
-    <td valign=top>&nbsp;Dialing a voicecall (international number format).&nbsp;</td>
-    <td valign=top>&nbsp;sendsms,&nbsp;smsd.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -388,19 +220,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;ATDnumber;&nbsp;</td>
     <td valign=top>&nbsp;Dialing a voicecall (national number format).&nbsp;</td>
-    <td valign=top>&nbsp;sendsms,&nbsp;smsd.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;ATDnumber;&nbsp;</td>
-    <td valign=top>&nbsp;Dialing a voicecall (national number format).&nbsp;</td>
     <td valign=top>&nbsp;sendsms,&nbsp;smsd.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;ATE0&nbsp;</td>
-    <td valign=top>&nbsp;Disabling the echo.&nbsp;</td>
-    <td valign=top>&nbsp;initmodem,&nbsp;modem.c~&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -412,19 +232,7 @@ Applies for the version of smsd: <b>3.2beta0</b>.
   <tr>
     <td valign=top>&nbsp;ATH&nbsp;</td>
     <td valign=top>&nbsp;Ending an incoming call.&nbsp;</td>
-    <td valign=top>&nbsp;put_command,&nbsp;modem.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;ATH&nbsp;</td>
-    <td valign=top>&nbsp;Ending an incoming call.&nbsp;</td>
-    <td valign=top>&nbsp;put_command,&nbsp;modem.c&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;ATH&nbsp;</td>
-    <td valign=top>&nbsp;Ending a voicecall.&nbsp;</td>
-    <td valign=top>&nbsp;sendsms,&nbsp;smsd.c~&nbsp;</td>
+    <td valign=top>&nbsp;handlephonecall_ring,&nbsp;modem.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
@@ -432,24 +240,12 @@ Applies for the version of smsd: <b>3.2beta0</b>.
     <td valign=top>&nbsp;Ending a voicecall.&nbsp;</td>
     <td valign=top>&nbsp;sendsms,&nbsp;smsd.c&nbsp;</td>
     <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT^SPBD="MC"&nbsp;</td>
-    <td valign=top>&nbsp;Remove phonecall entries.&nbsp;</td>
-    <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c~&nbsp;</td>
-    <td valign=top>&nbsp;(Siemens)&nbsp;</td>
   </tr>
   <tr>
     <td valign=top>&nbsp;AT^SPBD="MC"&nbsp;</td>
     <td valign=top>&nbsp;Remove phonecall entries.&nbsp;</td>
     <td valign=top>&nbsp;readphonecalls,&nbsp;smsd.c&nbsp;</td>
     <td valign=top>&nbsp;(Siemens)&nbsp;</td>
-  </tr>
-  <tr>
-    <td valign=top>&nbsp;AT+VTS=string&nbsp;</td>
-    <td valign=top>&nbsp;Sending DTMF tones (using VTS format).&nbsp;</td>
-    <td valign=top>&nbsp;sendsms,&nbsp;smsd.c~&nbsp;</td>
-    <td valign=top>&nbsp;GSM&nbsp;07.07&nbsp;</td>
   </tr>
   <tr>
     <td valign=top>&nbsp;AT+VTS=string&nbsp;</td>

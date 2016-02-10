@@ -107,7 +107,7 @@ int set_level(char *section, char *name, char *value)
   {
     strcpy(p, value);
     for (i = 0; p[i]; i++)
-      p[i] = toupper(p[i]);
+      p[i] = toupper((int)p[i]);
 
     if ((result = atoi(value)) < 1)
     {
@@ -254,7 +254,7 @@ void initcfg()
     devices[i].pinsleeptime=0;
     devices[i].smsc[0]=0;
     devices[i].baudrate=115200;
-    devices[i].send_delay=1;
+    devices[i].send_delay=0;
     devices[i].send_handshake_select=1;
     devices[i].cs_convert=1;
     devices[i].initstring[0]=0;
@@ -316,6 +316,7 @@ void initcfg()
     devices[i].voicecall_hangup_ath = -1;
     devices[i].voicecall_vts_quotation_marks = 0;
     devices[i].voicecall_cpas = 0;
+    devices[i].voicecall_clcc = 0;
     devices[i].status_signal_quality = -1;
     devices[i].status_include_counters = -1;
     devices[i].communication_delay = 0;
@@ -333,6 +334,12 @@ void initcfg()
     devices[i].needs_wakeup_at = 0;
     devices[i].keep_messages = 0;
     devices[i].trust_spool = 1;
+    devices[i].smsc_pdu = 0;
+    devices[i].telnet_login[0] = 0;
+    snprintf(devices[i].telnet_login_prompt, sizeof(devices[i].telnet_login_prompt), "%s", TELNET_LOGIN_PROMPT_DEFAULT);
+    snprintf(devices[i].telnet_login_prompt_ignore, sizeof(devices[i].telnet_login_prompt_ignore), "%s", TELNET_LOGIN_PROMPT_IGNORE_DEFAULT);
+    devices[i].telnet_password[0] = 0;
+    snprintf(devices[i].telnet_password_prompt, sizeof(devices[i].telnet_password_prompt), "%s", TELNET_PASSWORD_PROMPT_DEFAULT);
   }
   startup_err_str = NULL;
   startup_err_count = 0;
@@ -363,7 +370,7 @@ void initcfg()
 char *ask_value(char *section, char *name, char *value)
 {
   int m;
-  char tmp[PATH_MAX];
+  char tmp[4096];
   int i;
   int n;
 
@@ -445,10 +452,10 @@ char *ask_value(char *section, char *name, char *value)
 int readcfg()
 {
   FILE* File;
-  char devices_list[256];
+  char devices_list[4096];
   char name[64];
-  char value[PATH_MAX];
-  char tmp[PATH_MAX];
+  char value[4096];
+  char tmp[4096];
   char device_name[32];
   int result;
   int j, q;
@@ -957,6 +964,28 @@ int readcfg()
         startuperror("Syntax error: %s\n",value);
     }
 
+    // 3.1.12:
+    if ((p = strchr(devices_list, '*')) && strchr(devices_list, '-'))
+    {
+      int i, max;
+
+      *p = 0;
+      strcpy(tmp, devices_list);
+      i = atoi(p +1);
+      max = atoi(strstr(p +1, "-") + 1);
+      *devices_list = 0;
+      while (i <= max)
+      {
+        sprintf(value, "%s%i,", tmp, i);
+        if (sizeof(devices_list) - strlen(devices_list) <= strlen(value))
+          break;
+        strcpy(strchr(devices_list, 0), value);
+        i++;
+      }
+      if (*devices_list)
+        devices_list[strlen(devices_list) - 1] = 0;
+    }
+
     // If devices_list is empty, getsubparam still returns 1 while getting the first name.
     // Now this list is checked with it's own error message:
     if (devices_list[0] == 0)
@@ -984,7 +1013,7 @@ int readcfg()
         {
           // 3.1beta7: Check device name, it's also used to create a filename:
           for (j = 0; device_name[j] != 0; j++)
-            if (!isalnum(device_name[j]) && !strchr("_-.", device_name[j]))
+            if (!isalnumc(device_name[j]) && !strchr("_-.", device_name[j]))
               break;
 
           if (device_name[j] != 0)
@@ -993,10 +1022,13 @@ int readcfg()
             startuperror("Device name cannot be \"default\".");
           else if (!strcmp(device_name, "ALL"))
             startuperror("Device name cannot be \"ALL\".");
-          else if (!gotosection(File, device_name))
-	    startuperror("Could not find device [%s].\n", device_name);
+          //else if (!gotosection(File, device_name))
+	  //  startuperror("Could not find device [%s].\n", device_name);
           else
           {
+            // 3.1.12: modem section is no more mandatory.
+            int device_found = 1;
+
             for (read_default = 1; read_default >= 0; read_default--)
             {
               if (read_default)
@@ -1008,12 +1040,13 @@ int readcfg()
               }
               else
               {
-                gotosection(File, device_name);
+                if (!gotosection(File, device_name))
+                  device_found = 0;
                 strcpy2(NEWDEVICE.name, device_name);
               }
 
               // 3.1beta7: all errors are reported, not just the first one.
-              while ((result = my_getline(File, name, sizeof(name), value, sizeof(value))) != 0)
+              while (device_found && (result = my_getline(File, name, sizeof(name), value, sizeof(value))) != 0)
               {
                 if (result == -1)
                 {
@@ -1022,10 +1055,22 @@ int readcfg()
                 }
 
   	        if (strcasecmp(name,"number")==0)
- 	          strcpy2(NEWDEVICE.number,value);
+	          strcpy2(NEWDEVICE.number, ask_value(NEWDEVICE.name, name, value));
 	        else 
 	        if (strcasecmp(name,"device")==0)
-	          strcpy2(NEWDEVICE.device,value);
+                {
+                  ask_value(NEWDEVICE.name, name, value);
+                  // 3.1.12: special devicename:
+                  if ((p = strstr(value, "modemname")))
+                  {
+                    if (strlen(value) -9 +strlen(device_name) < sizeof(tmp))
+                    {
+                      sprintf(tmp, "%.*s%s%s", (int)(p -value), value, device_name, p +9);
+                      strcpy(value, tmp);
+                    }
+                  }
+	          strcpy2(NEWDEVICE.device, value);
+                }
 	        else
                 if (strcasecmp(name,"device_open_retries")==0)
 	          NEWDEVICE.device_open_retries=atoi(ask_value(NEWDEVICE.name, name, value));
@@ -1337,7 +1382,20 @@ int readcfg()
                   strcpy2(NEWDEVICE.dev_rr_statfile, ask_value(NEWDEVICE.name, name, value));
 	        else
                 if (strcasecmp(name,"logfile")==0)
-                  strcpy2(NEWDEVICE.logfile, ask_value(NEWDEVICE.name, name, value));
+                {
+                  ask_value(NEWDEVICE.name, name, value);
+
+                  // 3.1.12: special filename:
+                  if ((p = strstr(value, "modemname")))
+                  {
+                    if (strlen(value) -9 +strlen(device_name) < sizeof(tmp))
+                    {
+                      sprintf(tmp, "%.*s%s%s", (int)(p -value), value, device_name, p +9);
+                      strcpy(value, tmp);
+                    }
+                  }
+                  strcpy2(NEWDEVICE.logfile, value);
+                }
                 else
                 if (strcasecmp(name,"loglevel")==0)
                   NEWDEVICE.loglevel = set_level(NEWDEVICE.name, name, ask_value(NEWDEVICE.name, name, value));
@@ -1462,6 +1520,12 @@ int readcfg()
                     startuperror(yesno_error, name, value);
                 }
                 else
+                if (strcasecmp(name,"voicecall_clcc")==0)
+                {
+    	          if ((NEWDEVICE.voicecall_clcc = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
+                    startuperror(yesno_error, name, value);
+                }
+                else
                 if (strcasecmp(name,"status_signal_quality")==0)
                 {
     	          if ((NEWDEVICE.status_signal_quality = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
@@ -1531,6 +1595,27 @@ int readcfg()
                     startuperror(yesno_error, name, value);
                 }
                 else
+                if (strcasecmp(name,"smsc_pdu")==0)
+                {
+    	          if ((NEWDEVICE.smsc_pdu = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
+                    startuperror(yesno_error, name, value);
+                }
+                else
+                if (strcasecmp(name,"telnet_login")==0)
+                  strcpy2(NEWDEVICE.telnet_login, ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"telnet_login_prompt")==0)
+                  strcpy2(NEWDEVICE.telnet_login_prompt, ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"telnet_login_prompt_ignore")==0)
+                  strcpy2(NEWDEVICE.telnet_login_prompt_ignore, ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"telnet_password")==0)
+                  strcpy2(NEWDEVICE.telnet_password, ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"telnet_password_prompt")==0)
+                  strcpy2(NEWDEVICE.telnet_password_prompt, ask_value(NEWDEVICE.name, name, value));
+                else
 	          startuperror("Unknown setting for modem %s: %s\n", NEWDEVICE.name, name);
               }
 	    }
@@ -1543,7 +1628,9 @@ int readcfg()
     }
 
     fclose(File);
-    set_alarmhandler(alarmhandler,alarmlevel);
+
+    set_alarmhandler(alarmhandler, alarmlevel);
+
     // if loglevel is unset, then set it depending on if we use syslog or a logfile
     if (loglevel==-1)
     {
@@ -1588,7 +1675,7 @@ int getqueue(char* name, char* directory) // Name can also be a phone number
   // Short number is also accepted as a number:
   // 3.1beta4: A number can probably start with # or *:
   //if (is_number(name) || (*name == 's' && is_number(name +1)))
-  if (isdigit(*name) || (*name && strchr("#*", *name)) || (strlen(name) > 1 && *name == 's' && isdigit(*(name +1))))
+  if (isdigitc(*name) || (*name && strchr("#*", *name)) || (strlen(name) > 1 && *name == 's' && isdigitc(*(name +1))))
   {
 #ifdef DEBUGMSG
   printf("!! Searching by number\n");
@@ -1731,6 +1818,7 @@ void parsearguments(int argc,char** argv)
                 break;
       case 'V': printf("Version %s, Copyright (c) Keijo Kasvi, %s@%s.%s, http://smstools3.kekekasvi.com\n",
                        smsd_version,"smstools3","kekekasvi","com");
+                printf("Support: http://smstools3.kekekasvi.com/index.php?p=support\n");
                 printf("Based on SMS Server Tools 2 from Stefan Frings, %s@%s.%s, http://www.meinemullemaus.de\n",
                        "smstools","meinemullemaus","de");
                 printf("SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.\n");
@@ -1859,7 +1947,6 @@ int startup_check(int result)
   int d_incoming_ok = 0;
   int d_saved_ok = 0;
   struct stat statbuf;
-  int devices_in_use = 0;
   char timestamp[81];
   time_t now;
 
@@ -2073,8 +2160,6 @@ int startup_check(int result)
   {
     if (devices[x].name[0])
     {
-      devices_in_use++;
-
       if (devices[x].device[0] == 0)
         wrlogfile(&result, "%s has no device specified.", devices[x].name);
 
@@ -2223,7 +2308,7 @@ int startup_check(int result)
       {
         if (y == x)
           continue;
-        if (devices[y].name[0])
+        if (devices[y].name[0] && devices[y].device[0])
           if (strcmp(devices[y].device, devices[x].device) == 0)
             wrlogfile(&result, "Devices %s and %s has the same port ( device = %s ).", devices[x].name, devices[y].name, devices[x].device);
       }
@@ -2233,12 +2318,12 @@ int startup_check(int result)
         wrlogfile(&result, "Device %s uses ussd_convert = 1, but it's only available when USE_ICONV is defined.", devices[x].name);
 #endif
 
+      // 3.1.12: Both cpas and clcc cannot be defined.
+      if (devices[x].voicecall_cpas && devices[x].voicecall_clcc)
+        wrlogfile(&result, "Devices %s has both voicecall_cpas and voicecall_clcc defined. Decide which one to use.", devices[x].name);
+
     }
   }
-
-  if (trust_outgoing)
-    if (devices_in_use < 10)
-      wrlogfile(&result, "Setting trust_outgoing cannot be used with small setups (less than 10 modems).");
 
   // Administrative alerts from mainspooler:
   // If adminmessage_device is specified, it must exist and be usable.

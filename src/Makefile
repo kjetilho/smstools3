@@ -29,7 +29,7 @@ CFLAGS += -D NOSTATS
 # The following option is only used by developers
 # CFLAGS += -D DEBUGMSG
 
-CFLAGS += -W -Wall -Wchar-subscripts
+CFLAGS += -W -Wall
 
 # The following enables logfile size more than 2GB
 CFLAGS += -D_FILE_OFFSET_BITS=64

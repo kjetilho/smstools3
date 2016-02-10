@@ -63,7 +63,6 @@ Either version 2 of the License, or (at your option) any later version.
 #define SIZE_MESSAGEIDS 4096
 #define SIZE_IDENTITY 100
 #define SIZE_TB 1024
-#define SIZE_CHECK_MEMORY_BUFFER 16384
 #define SIZE_LOG_LINE 16384
 #define SIZE_PRIVILEDGED_NUMBERS 512
 #define SIZE_SMSD_DEBUG 100
@@ -71,9 +70,13 @@ Either version 2 of the License, or (at your option) any later version.
 #define SIZE_FILENAME_PREVIEW 256
 #define SIZE_PB_ENTRY 101
 
+#define SIZE_CHECK_MEMORY_BUFFER 512
+// 3.1.12: Changed size from 16384 when CMGL* method is used:
+#define SIZE_CHECK_MEMORY_BUFFER_CMGL 65536
+
 // Check memory methods:
 #define CM_NO_CPMS 0
-#define CM_S_NO_CPMS "Fixed values are used as CPMS does not work."
+#define CM_S_NO_CPMS "Fixed values are used because CPMS does not work."
 #define CM_CPMS 1
 #define CM_S_CPMS "CPMS is used."
 #define CM_CMGD 2
@@ -89,7 +92,20 @@ Either version 2 of the License, or (at your option) any later version.
 #define CM_CMGL_SIMCOM 5
 #define CM_S_CMGL_SIMCOM "CMGL is used. SIM600 compatible, see the manual for details."
 
+// 3.1.12:
+#define select_check_memory_buffer_size() (value_in(DEVICE.check_memory_method, 5, CM_CMGL, CM_CMGL_DEL_LAST, CM_CMGL_CHECK, CM_CMGL_DEL_LAST_CHECK, CM_CMGL_SIMCOM))? SIZE_CHECK_MEMORY_BUFFER_CMGL : SIZE_CHECK_MEMORY_BUFFER
+
 #define LENGTH_PDU_DETAIL_REC 70
+
+// For put_command() calls:
+#define EXPECT_OK_ERROR "(OK)|(ERROR)"
+
+#define TELNET_LOGIN_PROMPT_DEFAULT "login:"
+#define TELNET_LOGIN_PROMPT_IGNORE_DEFAULT "Last login:"
+#define TELNET_PASSWORD_PROMPT_DEFAULT "Password:"
+
+#define isdigitc(ch) isdigit((int)(ch))
+#define isalnumc(ch) isalnum((int)(ch))
 
 char process_title[32];         // smsd for main task, name of a modem for other tasks.
 int process_id;                 // -1 for main task, all other have numbers starting with 0.
@@ -174,6 +190,7 @@ typedef struct
   int voicecall_hangup_ath;     // If ATH is used instead of AT+CHUP.
   int voicecall_vts_quotation_marks; // Defines if AT+VTS="n" command is given with quotation marks.
   int voicecall_cpas;           // Defines if AT+CPAS is used to detect when a call is answered (phone returns OK after ATD).
+  int voicecall_clcc;           // 3.1.12: Defines if AT+CLCC is used to detect when a call is answered (phone returns OK after ATD).
   int check_memory_method;      // 0 = CPMS not supported, 1 = CPMS supported and must work (default), 2 = CMGD used to check messages, 3 = CMGL is used.
   char cmgl_value[32];          // With check_memory_method 3, correct value for AT+CMGL= must be given here.
   char priviledged_numbers[SIZE_PRIVILEDGED_NUMBERS]; // Priviledged numbers in incoming messages.
@@ -203,6 +220,12 @@ typedef struct
   int startsleeptime;           // 3.1.7: Second to wait after startstring is sent.
   char stopstring[100];         // 3.1.7: Command(s) to send to the modem when a devicespooler is stopping.
   int trust_spool;		// 3.1.9
+  int smsc_pdu;			// 3.1.12: 1 if smsc is included in the PDU.
+  char telnet_login[64];	// 3.1.12: Settings for telnet.
+  char telnet_login_prompt[64];
+  char telnet_login_prompt_ignore[64];
+  char telnet_password[64];
+  char telnet_password_prompt[64];
 } _device;
 
 // NOTE for regular run intervals: effective value is at least delaytime.
@@ -265,10 +288,10 @@ int hangup_incoming_call;       // 1 = if detected unexpected input contains RIN
 int max_continuous_sending;     // Defines when sending is breaked to do check/do other tasks. Time in minutes.
 int voicecall_hangup_ath;       // If ATH is used instead of AT+CHUP.
 
-// Undocumented:
+// 3.1.5:
 int trust_outgoing;             // 1 = it's _sure_ that files are created by rename AND permissions are correct. Speeds up spooling.
 
-// Undocumented:
+// 3.1.5:
 int ignore_outgoing_priority;   // 1 = Priority: high header is not checked. Speeds up spooling.
 
 // 3.1.7:
@@ -289,7 +312,6 @@ int log_unmodified;
 // 3.1.7:
 char suspend_filename[PATH_MAX];
 
-// Undocumented:
 // 3.1.9:
 int spool_directory_order;
 
@@ -342,7 +364,8 @@ char *getfile_err_store;
 char tb[SIZE_TB];
 
 // Buffer for SIM memory checking:
-char check_memory_buffer[SIZE_CHECK_MEMORY_BUFFER];
+char *check_memory_buffer;
+size_t check_memory_buffer_size;
 
 int os_cygwin;                  // 1 if we are on Cygwin.
 

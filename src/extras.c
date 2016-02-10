@@ -134,6 +134,14 @@ char *cut_ctrl(char* message) /* removes all ctrl chars */
   return message;
 }
 
+char *cut_crlf(char *st)
+{
+
+  while (*st && strchr("\r\n", st[strlen(st) -1]))
+    st[strlen(st) -1] = 0;
+
+  return st;
+}
 
 int is_blank(char c)
 {
@@ -324,7 +332,7 @@ char *cutspaces(char *text)
 
   /* count ctrl chars and spaces at the beginning */
   count=0;
-  while ((text[count]!=0) && ((is_blank(text[count])) || (iscntrl(text[count]))) )
+  while ((text[count]!=0) && ((is_blank(text[count])) || (iscntrl((int)text[count]))) )
     count++;
   /* remove ctrl chars at the beginning and \r within the text */
   omitted=0;
@@ -335,7 +343,7 @@ char *cutspaces(char *text)
     else
       text[i-omitted]=text[i+count];
   Length=strlen(text);
-  while ((Length>0) && ((is_blank(text[Length-1])) || (iscntrl(text[Length-1]))))
+  while ((Length>0) && ((is_blank(text[Length-1])) || (iscntrl((int)text[Length-1]))))
   {
     text[Length-1]=0;
     Length--;
@@ -428,11 +436,19 @@ int file_is_writable(char *filename)
 {
   int result = 0;
   FILE *fp;
+  struct stat statbuf;
 
-  if ((fp = fopen(filename, "a")))
+  // 3.1.12: First check that the file exists:
+  if (stat(filename, &statbuf) == 0)
   {
-    result = 1;
-    fclose(fp);
+    if (S_ISDIR(statbuf.st_mode) == 0)
+    {
+      if ((fp = fopen(filename, "a")))
+      {
+        result = 1;
+        fclose(fp);
+      }
+    }
   }
 
   return result;
@@ -450,10 +466,8 @@ int getpdufile(char *filename)
   {
     if (filename[strlen(filename) -1] != '/')
     {
-      if (stat(filename, &statbuf) == 0)
-        if (S_ISDIR(statbuf.st_mode) == 0)
-          if (file_is_writable(filename))
-            result = 1;
+      if (file_is_writable(filename))
+        result = 1;
     }
     else if (!strchr(filename, '.'))
     {
@@ -468,15 +482,11 @@ int getpdufile(char *filename)
               if (ent->d_name[0] != '.')
               {
                 sprintf(tmpname, "%s%s", filename, ent->d_name);
-                stat(tmpname, &statbuf);
-                if (S_ISDIR(statbuf.st_mode) == 0)
+                if (file_is_writable(tmpname))
                 {
-                  if (file_is_writable(tmpname))
-                  {
-                    strcpy(filename, tmpname);
-                    result = 1;
-                    break;
-                  }
+                  strcpy(filename, tmpname);
+                  result = 1;
+                  break;
                 }
               }
             }
@@ -498,201 +508,269 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
   struct dirent* ent;
   struct stat statbuf;
   int found=0;
-  time_t mtime = 0;
+  time_t mtime;
   char fname[PATH_MAX];
   char tmpname[PATH_MAX];
-  int found_highpriority = 0;
+  int found_highpriority;
   int i;
   char storage_key[PATH_MAX +3];
+  unsigned long long start_time;
 
+  // 3.1.12: Collect filenames:
+  typedef struct
+  {
+    char fname[NAME_MAX + 1];
+    time_t mtime;
+  } _candidate;
+
+  _candidate candidates[NUMBER_OF_MODEMS];
+  int lost_count = 0;
+  int files_count;
+  int locked_count;
 
 #ifdef DEBUGMSG
   printf("!! getfile(dir=%s, ...)\n", dir);
 #endif
 
-  // Oldest file is searched. With heavy traffic the first file found is not necesssary the oldest one.
+  start_time = time_usec();
 
-  if (!(dirdata = opendir(dir)))
+  // 3.1.12: if a file is lost, try a new search immediately.
+  while (1)
   {
-    // Something has happened to dir after startup check was done successfully.
-    writelogfile0(LOG_CRIT, 0, tb_sprintf("Stopping. Cannot open dir %s %s", dir, strerror(errno)));
-    alarm_handler0(LOG_CRIT, tb);
-    abnormal_termination(1);
-  }
-  else
-  {
+    if (terminate)
+      break;
+
+    // Oldest file is searched. With heavy traffic the first file found is not necesssary the oldest one.
+
+    if (!(dirdata = opendir(dir)))
+    {
+      // Something has happened to dir after startup check was done successfully.
+      writelogfile0(LOG_CRIT, 0, tb_sprintf("Stopping. Cannot open dir %s %s", dir, strerror(errno)));
+      alarm_handler0(LOG_CRIT, tb);
+      abnormal_termination(1);
+    }
+
+    mtime = 0;
+    files_count = 0;
+    locked_count = 0;
+    found_highpriority = 0;
+    memset(candidates, 0, sizeof(candidates));
+
     while ((ent = readdir(dirdata)))
     {
 #ifdef DEBUGMSG
-  printf("**readdir(): %s\n", ent->d_name);
+      printf("**readdir(): %s\n", ent->d_name);
 #endif
       sprintf(tmpname, "%s/%s", dir, ent->d_name);
-      stat(tmpname, &statbuf);
-      if (S_ISDIR(statbuf.st_mode) == 0) /* Is this a directory? */
+
+      // 3.1.12:
+      //stat(tmpname, &statbuf);
+      if (stat(tmpname, &statbuf) != 0)
+        continue;
+
+      if (S_ISDIR(statbuf.st_mode) != 0) /* Is this a directory? */
+        continue;
+
+      // 3.1.7:
+      //if (strcmp(tmpname + strlen(tmpname) - 5, ".LOCK") != 0)
+      i = 1;
+      if (strlen(tmpname) >= 5 && !strcmp(tmpname + strlen(tmpname) - 5, ".LOCK"))
+        i = 0;
+      else if (!strncmp(tmpname, "LOCKED", 6))
+        i = 0;
+
+      if (!i)
       {
-        // 3.1.7:
-        //if (strcmp(tmpname + strlen(tmpname) - 5, ".LOCK") != 0)
-        i = 1;
-        if (strlen(tmpname) >= 5 && !strcmp(tmpname + strlen(tmpname) - 5, ".LOCK"))
-          i = 0;
-        else if (!strncmp(tmpname, "LOCKED", 6))
-          i = 0;
+        locked_count++;
+        continue;
+      }
 
-        if (i)
+      files_count++;
+
+      // 3.1.12:
+      //if (trust_directory || !islocked(tmpname)) {...
+      if (islocked(tmpname))
+        continue;
+
+      sprintf(storage_key, "*%s*\n", tmpname);
+
+      // 3.1beta7, 3.0.10:
+      if (os_cygwin)
+        if (!check_access(tmpname))
+          chmod(tmpname, 0766);
+
+      if (!trust_directory && !os_cygwin && !file_is_writable(tmpname))
+      {
+        // Try to fix permissions.
+        int result = 1;
+        char tmp_filename[PATH_MAX +7];
+        FILE *fp;
+        FILE *fptmp;
+        char buffer[1024];
+        size_t n;
+
+        snprintf(tmp_filename, sizeof(tmp_filename), "%s.XXXXXX", tmpname);
+        close(mkstemp(tmp_filename));
+        unlink(tmp_filename);
+
+        if ((fptmp = fopen(tmp_filename, "w")) == NULL)
+          result = 0;
+        else
         {
-          if (trust_directory || !islocked(tmpname))
+          if ((fp = fopen(tmpname, "r")) == NULL)
+            result = 0;
+          else
           {
-            sprintf(storage_key, "*%s*\n", tmpname);
+            while ((n = fread(buffer, 1, sizeof(buffer), fp)) > 0)
+              fwrite(buffer, 1, n, fptmp);
 
-            // 3.1beta7, 3.0.10:
-            if (os_cygwin)
-              if (!check_access(tmpname))
-                chmod(tmpname, 0766);
-
-            if (!trust_directory && !os_cygwin && !file_is_writable(tmpname))
-            {
-              int result = 1;
-              char tmp_filename[PATH_MAX +7];
-              FILE *fp;
-              FILE *fptmp;
-              char line[1024];
-              size_t n;
-
-              sprintf(tmp_filename, "%s.XXXXXX", tmpname);
-              close(mkstemp(tmp_filename));
-              unlink(tmp_filename);
-
-              if ((fptmp = fopen(tmp_filename, "w")) == NULL)
-                result = 0;
-              else
-              {
-                if ((fp = fopen(tmpname, "r")) == NULL)
-                  result = 0;
-                else
-                {
-                  while ((n = fread(line, 1, sizeof(line), fp)) > 0)
-                    fwrite(line, 1, n, fptmp);
-
-                  fclose(fp);
-                }
-
-                fclose(fptmp);
-
-                if (result)
-                {
-                  unlink(tmpname);
-                  rename(tmp_filename, tmpname);
-                }
-                else
-                  unlink(tmp_filename);
-              }
-            }
-
-            if (!trust_directory && !file_is_writable(tmpname))
-            {
-              int report = 1;
-              char reason[100];
-
-              if (!check_access(tmpname))
-              {
-                snprintf(reason, sizeof(reason), "%s", "Access denied. Check the file and directory permissions.");
-                if (getfile_err_store)
-                  if (strstr(getfile_err_store, storage_key))
-                    report = 0; 
-
-                if (report)
-                {
-                  if (!getfile_err_store)
-                  {
-                    if ((getfile_err_store = (char *)malloc(strlen(storage_key) +1)))
-                      getfile_err_store[0] = 0;
-                  }
-                  else
-                    getfile_err_store = (char *)realloc((void *)getfile_err_store, strlen(getfile_err_store) +strlen(storage_key) +1);
-
-                  if (getfile_err_store)
-                    strcat(getfile_err_store, storage_key);
-
-                  writelogfile0(LOG_ERR, 0, tb_sprintf("Cannot handle %s: %s", tmpname, reason));
-                  alarm_handler0(LOG_ERR, tb);
-                }
-              }
-              else
-              {
-                // 3.1.5: This error is repeated:
-                snprintf(reason, sizeof(reason), "%s", "Dont know why. Check the file and directory permissions.");
-                writelogfile0(LOG_ERR, 0, tb_sprintf("Cannot handle %s: %s", tmpname, reason));
-                alarm_handler0(LOG_ERR, tb);
-              }
-            }
-            else
-            {
-              // Forget previous error with this file:
-              if (getfile_err_store)
-              {
-                char *p;
-                int l = strlen(storage_key);
-
-                if ((p = strstr(getfile_err_store, storage_key)))
-                  memmove(p, p +l, strlen(p) -l +1);
-                if (!(*getfile_err_store))
-                {
-                  free(getfile_err_store);
-                  getfile_err_store = NULL;
-                }
-              }
-
-              i = is_highpriority(tmpname);
-              if (found_highpriority && !i)
-              {
-#ifdef DEBUGMSG
-  printf("**%s %s not highpriority, already have one.\n", dir, ent->d_name);
-#endif
-                continue;
-              }
-
-              if (i && !found_highpriority)
-              {
-                // Forget possible previous found normal priority file:
-                mtime = 0;
-                found_highpriority = 1;
-              }
-
-#ifdef DEBUGMSG
-  printf("**%s %s %i ", dir, ent->d_name, (int)(statbuf.st_mtime));
-#endif
-
-              // 3.1.6: Files with the same timestamp: compare names:
-              if (found && statbuf.st_mtime == mtime)
-                if (strcmp(fname, tmpname) > 0)
-                  mtime = 0;
-
-              if (mtime == 0 || statbuf.st_mtime < mtime)
-              {
-#ifdef DEBUGMSG
-  printf("taken\n");
-#endif
-                strcpy(fname, tmpname);
-                mtime = statbuf.st_mtime;
-                found = 1;
-
-                if (spool_directory_order)
-                  break;
-
-              }
-#ifdef DEBUGMSG
-              else
-                printf("leaved\n");
-#endif
-            }
+            fclose(fp);
           }
+
+          fclose(fptmp);
+
+          if (result)
+          {
+            unlink(tmpname);
+            rename(tmp_filename, tmpname);
+          }
+          else
+            unlink(tmp_filename);
+        }
+      }
+
+      if (!trust_directory && !file_is_writable(tmpname))
+      {
+        int report = 1;
+        char reason[100];
+
+        if (!check_access(tmpname))
+        {
+          snprintf(reason, sizeof(reason), "%s", "Access denied. Check the file and directory permissions.");
+          if (getfile_err_store)
+            if (strstr(getfile_err_store, storage_key))
+              report = 0; 
+
+          if (report)
+          {
+            strcat_realloc(&getfile_err_store, storage_key, 0);
+            writelogfile0(LOG_ERR, 0, tb_sprintf("Cannot handle %s: %s", tmpname, reason));
+            alarm_handler0(LOG_ERR, tb);
+          }
+        }
+        else
+        {
+          // 3.1.5: This error is repeated:
+          snprintf(reason, sizeof(reason), "%s", "Dont know why. Check the file and directory permissions.");
+          writelogfile0(LOG_ERR, 0, tb_sprintf("Cannot handle %s: %s", tmpname, reason));
+          alarm_handler0(LOG_ERR, tb);
+        }
+      }
+      else
+      {
+        // Forget previous error with this file:
+        if (getfile_err_store)
+        {
+          char *p;
+          int l = strlen(storage_key);
+
+          if ((p = strstr(getfile_err_store, storage_key)))
+            memmove(p, p +l, strlen(p) -l +1);
+          if (!(*getfile_err_store))
+          {
+            free(getfile_err_store);
+            getfile_err_store = NULL;
+          }
+        }
+
+        i = is_highpriority(tmpname);
+        if (found_highpriority && !i)
+        {
+#ifdef DEBUGMSG
+          printf("**%s %s not highpriority, already have one.\n", dir, ent->d_name);
+#endif
+          continue;
+        }
+
+        if (i && !found_highpriority)
+        {
+          // Forget possible previous found normal priority file:
+          mtime = 0;
+          found_highpriority = 1;
+          memset(candidates, 0, sizeof(candidates));
+        }
+
+#ifdef DEBUGMSG
+        printf("**%s %s %i ", dir, ent->d_name, (int)(statbuf.st_mtime));
+#endif
+
+        // 3.1.6: Files with the same timestamp: compare names:
+        if (found && statbuf.st_mtime == mtime)
+          if (strcmp(fname, tmpname) > 0)
+            mtime = 0;
+
+        if (mtime == 0 || statbuf.st_mtime < mtime)
+        {
+#ifdef DEBUGMSG
+          printf("taken\n");
+#endif
+          strcpy(fname, tmpname);
+          mtime = statbuf.st_mtime;
+          found = 1;
+
+          if (spool_directory_order)
+            break;
+
+#if NUMBER_OF_MODEMS > 1
+          for (i = NUMBER_OF_MODEMS - 1; i > 0; i--)
+          {
+            strcpy(candidates[i].fname, candidates[i - 1].fname);
+            candidates[i].mtime = candidates[i - 1].mtime;
+          }
+          snprintf(candidates[0].fname, sizeof(candidates[0].fname), "%s", ent->d_name);
+          candidates[0].mtime = statbuf.st_mtime;
+#endif
+        }
+        else
+        {
+#ifdef DEBUGMSG
+          printf("leaved\n");
+#endif
+
+#if NUMBER_OF_MODEMS > 1
+          for (i = 1; i < NUMBER_OF_MODEMS; i++)
+          {
+            if (candidates[i].fname[0] == 0)
+              break;
+
+            if (candidates[i].mtime > statbuf.st_mtime)
+              break;
+
+            if (candidates[i].mtime == statbuf.st_mtime)
+              if (strcmp(candidates[i].fname, tmpname) > 0)
+                break;
+          }
+
+          if (i < NUMBER_OF_MODEMS)
+          {
+            int j;
+
+            for (j = NUMBER_OF_MODEMS - 1; j > i; j--)
+            {
+              strcpy(candidates[j].fname, candidates[j - 1].fname);
+              candidates[j].mtime = candidates[j - 1].mtime;
+            }
+            snprintf(candidates[i].fname, sizeof(candidates[i].fname), "%s", ent->d_name);
+            candidates[i].mtime = statbuf.st_mtime;
+          }
+#endif
         }
       }
     }
 
 #ifdef DEBUGMSG
-  if (getfile_err_store)
-    printf("!! process: %i, getfile_err_store:\n%s", process_id, getfile_err_store);
+    if (getfile_err_store)
+      printf("!! process: %i, getfile_err_store:\n%s", process_id, getfile_err_store);
 #endif
 
     // Each process has it's own error storage.
@@ -728,14 +806,47 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
     }
 
 #ifdef DEBUGMSG
-  if (getfile_err_store)
-    printf("!! process: %i, getfile_err_store:\n%s", process_id, getfile_err_store);
+    if (getfile_err_store)
+      printf("!! process: %i, getfile_err_store:\n%s", process_id, getfile_err_store);
 #endif
 
     // 3.1.9: Lock the file before waiting.
     if (found && lock)
-      if (!lockfile(fname))
+    {
+      // 3.1.12: check if a file still exists:
+      if (stat(fname, &statbuf) || !lockfile(fname))
+      {
         found = 0;
+
+#if NUMBER_OF_MODEMS > 1
+        // Try to take the next best file:
+        for (i = 1; i < NUMBER_OF_MODEMS && candidates[i].fname[0] && !found; i++)
+        {
+          sprintf(fname, "%s/%s", dir, candidates[i].fname);
+          if (stat(fname, &statbuf) == 0 && lockfile(fname))
+          {
+            mtime = candidates[i].mtime;
+            found = 1;
+            //writelogfile(LOG_DEBUG, 0, "Got the next best file from candidates (%i), %i SMS files and %i LOCK files seen.", i, files_count, locked_count);
+          }
+        }
+#endif
+
+        if (found == 0)
+        {
+          lost_count++;
+
+          // 3.1.12: continue immediately, or do other tasks after trying enough
+          if (max_continuous_sending == 0 || time_usec() < start_time + max_continuous_sending * 1000000)
+          {
+            closedir(dirdata);
+            continue;
+          }
+          else if (max_continuous_sending > 0)
+            writelogfile(LOG_DEBUG, 0, "Tried to get a file for %i seconds, will do other tasks and then continue.", (int)(time_usec() - start_time) / 1000000);
+        }
+      }
+    }
 
     if (!trust_directory && found)
     {
@@ -749,7 +860,11 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
       else
       {
         groesse1 = statbuf.st_size;
-        sleep(1);
+
+        // 3.1.12: sleep less:
+        //sleep(1);
+        usleep_until(time_usec() + 500000);
+            
         if (stat(fname, &statbuf))
           groesse2 = -1;
         else
@@ -763,12 +878,22 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
     }
 
     closedir(dirdata);
+
+    break;
   }
 
   if (!found)
     *filename = 0;
   else
+  {
     strcpy(filename, fname);
+
+    // 3.1.12:
+    i = (int)(time_usec() - start_time) / 100000;
+    if (i > 10)
+      writelogfile((i >= 50)? LOG_NOTICE : LOG_DEBUG, 0, "Took %.1f seconds to get a file %s, lost %i times, %i SMS files and %i LOCK files seen.", (double)i / 10, fname, lost_count, files_count, locked_count);
+  }
+
 #ifdef DEBUGMSG
   printf("## result for dir %s: %s\n\n", dir, filename);
 #endif
@@ -822,7 +947,10 @@ int my_system(
 	pid = fork();
 	if (pid == -1)
 	{
-		writelogfile0(LOG_CRIT, 0, tb_sprintf("Fatal error: fork failed."));
+		// 3.1.12:
+		//writelogfile0(LOG_CRIT, 0, tb_sprintf("Fatal error: fork failed."));
+		writelogfile0(LOG_CRIT, 0, tb_sprintf("Fatal error: fork failed. %i, %s", errno, strerror(errno)));
+
 		return -1;
 	}
 
@@ -849,7 +977,6 @@ int my_system(
 			{
 				sprintf(cmd, "%s %s %s", command, tmp1, tmp2);
 				argv[2] = cmd;
-//writelogfile0(LOG_CRIT, 0, tb_sprintf("Running: %s", cmd));
 			}
 		}
 
@@ -1016,10 +1143,10 @@ int parse_validity(char *value, int defaultvalue)
     cutspaces(tmp);
     for (idx = 0; tmp[idx]; idx++)
     {
-      tmp[idx] = tolower(tmp[idx]);
+      tmp[idx] = tolower((int)tmp[idx]);
       if (tmp[idx] == '\t')
         tmp[idx] = ' ';
-      if (isdigit(tmp[idx]))
+      if (isdigitc(tmp[idx]))
         got_numbers = 1;
       else
         got_letters = 1;
@@ -1166,7 +1293,7 @@ int report_validity(char *buffer, int validity_period)
 
 int getrand(int toprange)
 {
-  srand(time(NULL));
+  srand((int)(time(NULL) * getpid()));
   return (rand() % toprange) +1;
 }
 
@@ -1285,14 +1412,21 @@ int value_in(int value, int arg_count, ...)
 
 int t_sleep(int seconds)
 {
-  int i;
+  // 3.1.12: When a signal handler is installed, receiving of any singal causes
+  // that functions sleep() and usleep() will return immediately.
+  //int i;
+  time_t t;
 
-  for (i = 0; i < seconds; i++)
+  t = time(0);
+  //for (i = 0; i < seconds; i++)
+  while (time(0) - t < seconds)
   {
-    if (terminate == 1)
+    if (terminate)
       return 1;
+
     sleep(1);
   }
+
   return 0;
 }
 
@@ -1311,7 +1445,7 @@ int usleep_until(unsigned long long target_time)
       return 1;
 
     if (now < target_time)
-      usleep(100000);
+      usleep(100);
   }
   while (now < target_time);
 

@@ -14,6 +14,7 @@ Either version 2 of the License, or (at your option) any later version.
 */
 
 #include "locking.h"
+#include "smsd_cfg.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
@@ -27,7 +28,7 @@ int lockfile( char*  filename)
   char lockfilename[PATH_MAX +5];
   int lockfile;
   struct stat statbuf;
-  char pid[20];
+  char pid[64];
 
   if (!filename)
     return 0;
@@ -41,9 +42,10 @@ int lockfile( char*  filename)
     lockfile=open(lockfilename,O_CREAT|O_EXCL|O_WRONLY,0644);
     if (lockfile>=0)
     {
-      sprintf(pid,"%i\n",(int)getpid());
+      snprintf(pid, sizeof(pid), "%i %s\n", (int)getpid(), DEVICE.name);
       write(lockfile, pid, strlen(pid));
       close(lockfile);
+      sync();
       return 1;
     }
   }

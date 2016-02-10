@@ -31,6 +31,8 @@ int yesno_check(char *value);
 /* removes all ctrl chars */
 char *cut_ctrl(char* message);
 
+char *cut_crlf(char *st);
+
 /* Is a character a space or tab? */
 int is_blank(char c);
 int line_is_blank(char *line);

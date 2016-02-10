@@ -257,10 +257,25 @@ char *explain_csq_buffer(char *buffer, int short_form, int ssi, int ber)
     strcat(buffer, (short_form)? "??" : "not present of not measurable");
   else
   {
-    if (short_form)
-      sprintf(strchr(buffer, 0), "%i dBm", -113 +2 *ssi);
+    // 3.1.12: explain level:
+    int dbm;
+    char *level = "";
+
+    dbm = -113 + 2 * ssi;
+
+    if (dbm <= -95)
+      level = " (Marginal)"; // Marginal - Levels of -95dBm or lower.
+    else if (dbm <= -85)
+      level = " (Workable)"; // Workable under most conditions - Levels of -85dBm to -95dBm.
+    else if (dbm <= -75)
+      level = " (Good)"; // Good - Levels between -75dBm and -85dBm.
     else
-      sprintf(strchr(buffer, 0), "(%d,%d) %i dBm%s", ssi, ber, -113 +2 *ssi, (ssi == 0)? " or less" : "");
+      level = " (Excellent)"; // Excellent - levels above -75dBm.
+
+    if (short_form)
+      sprintf(strchr(buffer, 0), "%i dBm%s", dbm, level);
+    else
+      sprintf(strchr(buffer, 0), "(%d,%d) %i dBm%s%s", ssi, ber, dbm, level, (ssi == 0)? " or less" : "");
   }
 
   strcat(buffer, (short_form)? ", ber: " : ", Bit Error Rate: ");
@@ -316,11 +331,16 @@ void explain_csq(int loglevel, int short_form, char *answer)
   if (strstr(answer, "ERROR"))
     return;
 
-  if (strncmp(answer, "+CSQ:", 5))
+  // 3.1.12: Allow "echo on":
+  //if (strncmp(answer, "+CSQ:", 5))
+  //  return;
+  if (!(p = strstr(answer, "+CSQ:")))
     return;
 
-  ssi = atoi(answer +5);
-  if ((p = strchr(answer, ',')))
+  //ssi = atoi(answer +5);
+  ssi = atoi(p +5);
+  //if ((p = strchr(answer, ',')))
+  if ((p = strchr(p, ',')))
     ber = atoi(p +1);
 
   explain_csq_buffer(buffer, short_form, ssi, ber);
@@ -376,7 +396,7 @@ int write_to_modem(char *command, int timeout, int log_command, int print_error)
         r += got;
 
         if (DEVICE.send_delay > 0)
-          usleep(DEVICE.send_delay * 1000);
+          usleep_until(time_usec() + DEVICE.send_delay * 1000);
 
         tcdrain(modem_handle);
       }
@@ -390,7 +410,7 @@ int write_to_modem(char *command, int timeout, int log_command, int print_error)
         ioctl(modem_handle, TIOCMGET, &status);
         while (!(status & TIOCM_CTS))
         {
-          usleep(100000);
+          usleep_until(time_usec() + 100000);
           timeoutcounter++;
           ioctl(modem_handle, TIOCMGET, &status);
           if (timeoutcounter>timeout)
@@ -435,7 +455,7 @@ int write_to_modem(char *command, int timeout, int log_command, int print_error)
             }
             return 0;
           }
-          usleep(DEVICE.send_delay *1000);
+          usleep_until(time_usec() + DEVICE.send_delay *1000);
           tcdrain(modem_handle);
         }
       }
@@ -443,6 +463,99 @@ int write_to_modem(char *command, int timeout, int log_command, int print_error)
   }
 
   return 1;
+}
+
+// 3.1.12:
+void negotiate_with_telnet(char *answer, int *len)
+{
+#define IAC  '\xFF' /* Interpret as command: */
+#define DONT '\xFE' /* You are not to use option */
+#define DO   '\xFD' /* Please, you use option */
+#define WONT '\xFC' /* I won't use option */
+#define WILL '\xFB' /* I will use option */
+#define SB   '\xFA' /* Interpret as subnegotiation */
+#define SE   '\xF0' /* End sub negotiation */
+
+  char *title = "Telnet";
+  int idx;
+  int i;
+  int count;
+  char response[128];
+  char command;
+  int got_option;
+  char option;
+
+  idx = 0;
+  while (idx < *len)
+  {
+    if (answer[idx] == IAC && idx +1 < *len)
+    {
+      *response = 0;
+      count = 3;
+      command = answer[idx +1];
+      got_option = idx +2 < *len;
+      option = (got_option)? answer[idx +2] : 0;
+
+      if (command == DO && got_option)
+      {
+        snprintf(response, sizeof(response), "%c%c%c", IAC, WONT, option);
+        writelogfile(LOG_DEBUG, 0, "%s: Got DO for %i (0x%02X), answering WONT.", title, (int)option, option);
+      }
+      else if (command == WILL && got_option)
+      {
+        snprintf(response, sizeof(response), "%c%c%c", IAC, DONT, option);
+        writelogfile(LOG_DEBUG, 0, "%s: Got WILL for %i (0x%02X), answering DONT.", title, (int)option, option);
+      }
+      else if (command == WONT && got_option)
+      {
+        writelogfile(LOG_DEBUG, 0, "%s: Got WONT for %i (0x%02X), ignoring.", title, (int)option, option);
+      }
+      else if (command == SB && got_option)
+      {
+        writelogfile(LOG_DEBUG, 0, "%s: Got SB for %i (0x%02X), ignoring.", title, (int)option, option);
+        count = 4;
+      }
+      else if (command == SE)
+      {
+        writelogfile(LOG_DEBUG, 0, "%s: Got SE, ignoring.", title);
+        count = 2;
+      }
+
+      if (*response)
+        if ((size_t)write(modem_handle, response, strlen(response)) != strlen(response))
+          writelogfile(LOG_ERR, 1, "%s: Failed to send response.", title);
+
+      for (i = idx; i +count < *len; i++)
+        answer[i] = answer[i +count];
+
+      *len -= count;
+    }
+    else
+      idx++;
+  }
+
+  answer[*len] = 0;
+
+  *response = 0;
+  if (DEVICE.telnet_login_prompt[0] && strstr(answer, DEVICE.telnet_login_prompt) && DEVICE.telnet_login[0])
+  {
+    if (DEVICE.telnet_login_prompt_ignore[0] == 0 || !strstr(answer, DEVICE.telnet_login_prompt_ignore))
+      snprintf(response, sizeof(response), "%s\n", DEVICE.telnet_login);
+  }
+  else if (DEVICE.telnet_password_prompt[0] && strstr(answer, DEVICE.telnet_password_prompt) && DEVICE.telnet_password[0])
+    snprintf(response, sizeof(response), "%s\n", DEVICE.telnet_password);
+
+  if (*response)
+    if ((size_t)write(modem_handle, response, strlen(response)) != strlen(response))
+      writelogfile(LOG_ERR, 1, "%s: Failed to send response (login/password).", title);
+
+#undef IAC
+#undef DONT
+#undef DO
+#undef WONT
+#undef WILL
+#undef SB
+#undef SE
 }
 
 // Read max characters from modem. The function returns when it received at 
@@ -474,7 +587,7 @@ int read_from_modem(char *answer, int max, int timeout)
     {
       // wait a litte bit and then repeat this loop
       got=0;
-      usleep(100000);
+      usleep_until(time_usec() + 100000);
       timeoutcounter++;
     }
     else  
@@ -508,9 +621,41 @@ int read_from_modem(char *answer, int max, int timeout)
       // append a string termination character
       answer[count+got]=0;
       success=1;      
+
+      // 3.1.12: With Multitech network modem (telnet) there can be 0x00 inside the string:
+      if (strlen(answer) < (size_t)count + got)
+      {
+        int i, j, len;
+
+        len = count + got;
+        j = 0;
+        for (i = 0; i < count + got; i++)
+        {
+          if (answer[i] == '\0')
+          {
+            len--;
+            continue;
+          }
+
+          if (i > j)
+            answer[j] = answer[i];
+          j++;
+        }
+
+        answer[len] = 0;
+      }
+
     }
   }
   while (timeoutcounter < timeout);
+
+  // 3.1.12:
+  if (success && DEVICE_IS_SOCKET)
+  {
+    count += got;
+    negotiate_with_telnet(answer, &count);
+  }
+
   return success;
 }
 
@@ -646,18 +791,71 @@ int detect_routed_message(char *answer)
   return result;
 }
 
-void handlephonecall_clip(char *answer)
+void do_hangup(char *answer)
 {
+
+	if (DEVICE.hangup_incoming_call == 1 || (DEVICE.hangup_incoming_call == -1 && hangup_incoming_call == 1) || DEVICE.phonecalls == 2)
+	{
+		char *command = "AT+CHUP\r";
+		char tmpanswer[1024];
+		int timeoutcounter;
+
+		if (DEVICE.voicecall_hangup_ath == 1 || (DEVICE.voicecall_hangup_ath == -1 && voicecall_hangup_ath == 1))
+			command = "ATH\r";
+
+		writelogfile(LOG_NOTICE, 0, "Ending incoming call: %s", answer);
+
+		write_to_modem(command, 30, 1, 0);
+
+		timeoutcounter = 0;
+		*tmpanswer = 0;
+
+		do
+		{
+			read_from_modem(tmpanswer, sizeof(tmpanswer), 2);	// One read attempt is 200ms
+
+			// Any answer is ok:
+			if (*tmpanswer)
+				break;
+
+			timeoutcounter++;;
+		}
+		while (timeoutcounter < 5);
+
+		if (!log_unmodified)
+		{
+			cutspaces(tmpanswer);
+			cut_emptylines(tmpanswer);
+
+			if (log_single_lines)
+				change_crlf(tmpanswer, ' ');
+		}
+		writelogfile(LOG_DEBUG, 0, "<- %s", tmpanswer);
+
+		if (DEVICE.communication_delay > 0)
+			usleep_until(time_usec() + DEVICE.communication_delay * 1000);
+	}
+}
+
+int handlephonecall_clip(char *answer)
+{
+	int result = 0;
 	char *p, *e_start, *e_end;
 	int len;
 	char entry_number[SIZE_PB_ENTRY];
 	int entry_type;
+
+	if (DEVICE.phonecalls != 2)
+		return 0;
 
 	*entry_number = 0;
 	entry_type = 0;
 
 	if ((p = strstr(answer, "+CLIP:")))
 	{
+		do_hangup(answer);
+		result = -1;
+
 		if ((e_start = strchr(p, '"')))
 		{
 			e_start++;
@@ -675,11 +873,20 @@ void handlephonecall_clip(char *answer)
 						e_end += 2;
 						writelogfile(LOG_INFO, 0, "Got phonecall from %s", entry_number);
 						savephonecall(entry_number, atoi(e_end), "");
+						result = 1;
 					}
 				}
 			}
 		}
+
+		if (result == -1)
+		{
+			writelogfile0(LOG_ERR, 1, tb_sprintf("Error while trying to handle +CLIP."));
+			alarm_handler0(LOG_ERR, tb);
+		}
 	}
+
+	return result;
 }
 
 // 3.1beta7: Not waiting any answer if answer is NULL. Return value is then 1/0.
@@ -694,7 +901,6 @@ int put_command(char *command, char *answer, int max, int timeout_count, char *e
 int put_command0(char *command, char *answer, int max, int timeout_count, char *expect, int silent)
 {
   char loganswer[SIZE_LOG_LINE];
-  char tmpanswer[SIZE_LOG_LINE];
   int timeoutcounter = 0;
   regex_t re;
   int got_timeout = 0;
@@ -702,6 +908,7 @@ int put_command0(char *command, char *answer, int max, int timeout_count, char *
   int timeout;
   int i;
   static unsigned long long last_command_ended = 0;
+  int last_length;
 
   if (DEVICE.communication_delay > 0)
     if (last_command_ended)
@@ -726,7 +933,12 @@ int put_command0(char *command, char *answer, int max, int timeout_count, char *
   if ((DEVICE.incoming && DEVICE.detect_message_routing) || DEVICE.detect_unexpected_input)
   {
     *loganswer = 0;
-    read_from_modem(loganswer, sizeof(loganswer), 2);  // One read attempt is 200ms
+    do
+    {
+      i = strlen(loganswer);
+      read_from_modem(loganswer, sizeof(loganswer), 2);  // One read attempt is 200ms
+    }
+    while (strlen(loganswer) > (size_t)i);
 
     i = 0;
     if (DEVICE.incoming && DEVICE.detect_message_routing)
@@ -751,59 +963,9 @@ int put_command0(char *command, char *answer, int max, int timeout_count, char *
           if (!(strstr(loganswer, "+CLIP:") && DEVICE.phonecalls == 2))
             writelogfile(LOG_ERR, DEVICE.unexpected_input_is_trouble, "Unexpected input: %s", loganswer);
 
-        if (strstr(loganswer, "RING"))
-        {
-          if (DEVICE.hangup_incoming_call == 1 ||
-              (DEVICE.hangup_incoming_call == -1 && hangup_incoming_call == 1) ||
-              DEVICE.phonecalls == 2)
-          {
-            char *command = "AT+CHUP\r";
-
-           if (DEVICE.voicecall_hangup_ath == 1 ||
-                (DEVICE.voicecall_hangup_ath == -1 && voicecall_hangup_ath == 1))
-              command = "ATH\r";
-
-            writelogfile(LOG_NOTICE, 0, "Ending incoming call: %s", loganswer);
-
-            write_to_modem(command, 30, 1, 0);
-
-            timeoutcounter = 0;
-            *tmpanswer = 0;
-
-            do
-            {
-              read_from_modem(tmpanswer, sizeof(tmpanswer), 2);  // One read attempt is 200ms
-
-              // Any answer is ok:
-              if (*tmpanswer)
-                break;
-
-              timeoutcounter++;;
-            }
-            while (timeoutcounter < 5);
-
-            if (!log_unmodified)
-            {
-              cutspaces(tmpanswer);
-              cut_emptylines(tmpanswer);
-
-              if (log_single_lines)
-                change_crlf(tmpanswer, ' ');
-            }
-
-            writelogfile(LOG_DEBUG, 0, "<- %s", tmpanswer);
-
-            last_command_ended = time_usec();
-
-            if (DEVICE.communication_delay > 0)
-              if (last_command_ended)
-                usleep_until(last_command_ended +DEVICE.communication_delay *1000);
-          }
-        }
-
-	if (strstr(loganswer, "+CLIP:") && DEVICE.phonecalls == 2)
-		handlephonecall_clip(loganswer);
-
+	if (handlephonecall_clip(loganswer) != 1)
+          if (strstr(loganswer, "RING") && DEVICE.phonecalls != 2)
+            do_hangup(loganswer);
       }
     }
   }
@@ -840,6 +1002,8 @@ int put_command0(char *command, char *answer, int max, int timeout_count, char *
     answer[0] = 0;
     timeoutcounter = 0;
     got_timeout = 1;
+    last_length = 0;
+
     do
     {
       read_from_modem(answer, max, 2);  // One read attempt is 200ms
@@ -872,9 +1036,18 @@ int put_command0(char *command, char *answer, int max, int timeout_count, char *
       }
       // ------------------------------------------------------------
 
-      timeoutcounter += 2;
+      // 3.1.12: If got something from the modem, do not count timeout:
+      //timeoutcounter += 2;
+      i = strlen(answer);     
+      if (i == last_length)
+        timeoutcounter += 2;
+      else
+      {
+        last_length = i;
+        timeoutcounter = 0;
+      }
     }
-    // repeat until timout
+    // repeat until timeout
     while (timeoutcounter < timeout);
 
     if (got_timeout)
@@ -914,6 +1087,14 @@ int put_command0(char *command, char *answer, int max, int timeout_count, char *
     }
 
     writelogfile(LOG_DEBUG, 0, "<- %s", loganswer);
+
+    // 3.1.12: Check if the answer contains a phonecall:
+    if (DEVICE.detect_unexpected_input)
+    {
+      if (handlephonecall_clip(loganswer) != 1)
+        if (strstr(loganswer, "RING") && DEVICE.phonecalls != 2)
+          do_hangup(loganswer);
+    }
   }
 
   // Free memory used by regexp
@@ -1063,7 +1244,7 @@ int initmodem(char *new_smsc, int receiving)
   if (DEVICE.needs_wakeup_at)
   {
     put_command("AT\r", 0, 0, 1, 0);
-    usleep(100000);
+    usleep_until(time_usec() + 100000);
     read_from_modem(answer, sizeof(answer), 2);
   }
 
@@ -1073,14 +1254,14 @@ int initmodem(char *new_smsc, int receiving)
     flush_smart_logging();
 
     retries++;
-    put_command("AT\r", answer, sizeof(answer), 1, "(OK)|(ERROR)");
+    put_command("AT\r", answer, sizeof(answer), 1, EXPECT_OK_ERROR);
     if (!strstr(answer, "OK") && !strstr(answer, "ERROR"))
     {
       if (terminate)
         return 7;
 
       // if Modem does not answer, try to send a PDU termination character
-      put_command("\x1A\r", answer, sizeof(answer), 1, "(OK)|(ERROR)");
+      put_command("\x1A\r", answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 
       if (terminate)
         return 7;
@@ -1090,7 +1271,7 @@ int initmodem(char *new_smsc, int receiving)
     if (retries >= 5 && !strstr(answer, "OK"))
     {
       try_closemodem(1);
-      sleep(1);
+      t_sleep(1);
 
       // If open fails, nothing can be done. Error is already logged. Will return 1.
       if (!try_openmodem())
@@ -1113,7 +1294,7 @@ int initmodem(char *new_smsc, int receiving)
   if (DEVICE.pre_init > 0)
   {
     writelogfile(LOG_INFO, 0, "Pre-initializing modem");
-    put_command((DEVICE.phonecalls == 2)? pre_initstring_clip : pre_initstring, answer, sizeof(answer), 2, "(OK)|(ERROR)");
+    put_command((DEVICE.phonecalls == 2)? pre_initstring_clip : pre_initstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
     if (!strstr(answer,"OK"))
       writelogfile(LOG_ERR, 1, "Modem did not accept the pre-init string");
   }
@@ -1132,6 +1313,11 @@ int initmodem(char *new_smsc, int receiving)
     // 3.1.7: Some modems include quotation marks in the answer, like +CPIN: "READY".
     while ((p = strchr(answer, '"')))
       strcpyo(p, p +1);
+
+    // 3.1.12: Allow "echo on":
+    if ((p = strstr(answer, "+CPIN:")))
+      if (p > answer)
+        strcpyo(answer, p);
 
     // 3.1.7: Some modems may leave a space away after +CPIN:
     if (!strncmp(answer, "+CPIN:", 6) && strncmp(answer, "+CPIN: ", 7))
@@ -1152,7 +1338,7 @@ int initmodem(char *new_smsc, int receiving)
       {
         writelogfile(LOG_NOTICE, 0, "Modem needs PIN, entering PIN...");
         sprintf(command, "AT+CPIN=\"%s\"\r", DEVICE.pin);
-        put_command(command, answer, sizeof(answer), 6, "(OK)|(ERROR)");
+        put_command(command, answer, sizeof(answer), 6, EXPECT_OK_ERROR);
         if (strstr(answer, "ERROR"))
         {
           p = get_gsm_error(answer);
@@ -1210,7 +1396,7 @@ int initmodem(char *new_smsc, int receiving)
     do
     {
       retries++;
-      put_command(DEVICE.initstring, answer, sizeof(answer), 2, "(OK)|(ERROR)");
+      put_command(DEVICE.initstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
       if (strstr(answer, "ERROR"))
         if (retries < 2)
           if (t_sleep(errorsleeptime))
@@ -1233,7 +1419,7 @@ int initmodem(char *new_smsc, int receiving)
     do
     {
       retries++;
-      put_command(DEVICE.initstring2, answer, sizeof(answer), 2, "(OK)|(ERROR)");
+      put_command(DEVICE.initstring2, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
       if (strstr(answer, "ERROR"))
         if (retries < 2)
           if (t_sleep(errorsleeptime))
@@ -1261,7 +1447,7 @@ int initmodem(char *new_smsc, int receiving)
     do
     {
       retries++;
-      put_command("AT+CSQ\r", answer, sizeof(answer), 2, "(OK)|(ERROR)");
+      put_command("AT+CSQ\r", answer, sizeof(answer), 2, EXPECT_OK_ERROR);
       if (strstr(answer, "ERROR"))
         if (retries < 2)
           if (t_sleep(errorsleeptime))
@@ -1269,10 +1455,14 @@ int initmodem(char *new_smsc, int receiving)
     }
     while (retries < 2 && !strstr(answer,"OK"));
 
-    if (!strncmp(answer, "+CSQ:", 5))
+    // 3.1.12: Allow "echo on":
+    //if (!strncmp(answer, "+CSQ:", 5))
+    if ((p = strstr(answer, "+CSQ:")))
     {
-      STATISTICS->ssi = atoi(answer +5);
-      if ((p = strchr(answer, ',')))
+      //STATISTICS->ssi = atoi(answer +5);
+      STATISTICS->ssi = atoi(p +5);
+      //if ((p = strchr(answer, ',')))
+      if ((p = strchr(p, ',')))
         STATISTICS->ber = atoi(p +1);
       else
         STATISTICS->ber = -2;
@@ -1309,7 +1499,7 @@ int initmodem(char *new_smsc, int receiving)
   do
   {
     retries++;
-    put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+    put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
     if (strstr(answer, "ERROR"))
       if (retries < 2)
         if (t_sleep(errorsleeptime))
@@ -1326,7 +1516,7 @@ int initmodem(char *new_smsc, int receiving)
   }
 
   // -----------------------------------------------------------------------------------------------
-  if (new_smsc[0] || DEVICE.smsc[0])
+  if (!DEVICE.smsc_pdu && (new_smsc[0] || DEVICE.smsc[0]))
   {
     writelogfile(LOG_INFO, 0, "Changing SMSC");
 
@@ -1341,7 +1531,7 @@ int initmodem(char *new_smsc, int receiving)
     do
     {
       retries++;
-      put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+      put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
       if (strstr(answer, "ERROR"))
         if (retries < 2)
           if (t_sleep(errorsleeptime))
@@ -1364,11 +1554,11 @@ int initmodem(char *new_smsc, int receiving)
   {
     //writelogfile(LOG_INFO,m odemname,"Querying IMSI");
     sprintf(command,"AT+CIMI\r");
-    put_command(command, DEVICE.identity, SIZE_IDENTITY, 1, "(OK)|(ERROR)");
+    put_command(command, DEVICE.identity, SIZE_IDENTITY, 1, EXPECT_OK_ERROR);
 
     // 3.1.5: do not remove ERROR text:
     if (!strstr(DEVICE.identity, "ERROR"))
-      while (DEVICE.identity[0] && !isdigit(DEVICE.identity[0]))
+      while (DEVICE.identity[0] && !isdigitc(DEVICE.identity[0]))
         strcpyo(DEVICE.identity, DEVICE.identity +1);
 
     // 3.1beta7: If CIMI is not supported, try CGSN (Product Serial Number)
@@ -1376,20 +1566,20 @@ int initmodem(char *new_smsc, int receiving)
     if (strstr(DEVICE.identity, "ERROR"))
     {
       sprintf(command,"AT+CGSN\r");
-      put_command(command, DEVICE.identity, SIZE_IDENTITY, 1, "(OK)|(ERROR)");
+      put_command(command, DEVICE.identity, SIZE_IDENTITY, 1, EXPECT_OK_ERROR);
 
       // 3.1:
-      while (DEVICE.identity[0] && !isdigit(DEVICE.identity[0]))
+      while (DEVICE.identity[0] && !isdigitc(DEVICE.identity[0]))
         strcpyo(DEVICE.identity, DEVICE.identity +1);
     }
     else
     {
       // 3.1.5: IMSI worked. Log CGSN for informative purposes:
       sprintf(command,"AT+CGSN\r");
-      put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+      put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 
       if (!strstr(answer, "ERROR"))
-        while (answer[0] && !isdigit(answer[0]))
+        while (answer[0] && !isdigitc(answer[0]))
           strcpyo(answer, answer +1);
 
       if ((p = strstr(answer, "OK")))
@@ -1420,12 +1610,12 @@ int initmodem(char *new_smsc, int receiving)
     writelogfile(LOG_INFO, 0, "Checking if reading of messages is supported");
 
     sprintf(command,"AT+CPMS?\r");
-    put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+    put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 
     if (strstr(answer, "+CPMS: ,,,,,,,,"))
     {
       sprintf(command,"AT+CPMS=?\r");
-      put_command(command, answer, sizeof(answer), 1, "(OK)|(ERROR)");
+      put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
 
       if (strstr(answer, "+CPMS: (),(),()"))
       {
@@ -1474,7 +1664,7 @@ int initmodem(char *new_smsc, int receiving)
       snprintf(tmp, sizeof(tmp), "# %s:", commands[i + 1]);
       writelogfile(LOG_DEBUG, 0, tmp);
       sprintf(command, "%s\r", commands[i]);
-      put_command0(command, answer, sizeof(answer), 1, "(OK)|(ERROR)", 1);
+      put_command0(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR, 1);
     }
 
     writelogfile(LOG_DEBUG, 0, "## End of device details");
@@ -1588,7 +1778,7 @@ int open_inet_socket(char *backend)
         writelogfile(LOG_INFO, 0, tb);
     }
 
-    sleep(DEVICE.socket_connection_errorsleeptime);
+    t_sleep(DEVICE.socket_connection_errorsleeptime);
   }
 
   socketflags = fcntl(fd, F_GETFL);
@@ -1621,6 +1811,21 @@ int openmodem()
     modem_handle = open_inet_socket(DEVICE.device);
   else
 #endif
+  {
+    // 3.1.12:
+    if (DEVICE.modem_disabled)
+    {
+      struct stat statbuf;
+
+      if (stat(DEVICE.device, &statbuf) != 0)
+      {
+        FILE *fp;
+
+        if ((fp = fopen(DEVICE.device, "w")))
+          fclose(fp);
+      }
+    }
+
     // 3.1.7:
     while ((modem_handle = open(DEVICE.device, O_RDWR | O_NOCTTY | O_NONBLOCK)) < 0)
     {
@@ -1639,8 +1844,9 @@ int openmodem()
       else
         writelogfile(LOG_INFO, 0, tb);
 
-      sleep(DEVICE.device_open_errorsleeptime);
+      t_sleep(DEVICE.device_open_errorsleeptime);
     }
+  }
 
   if (modem_handle < 0)
   {
@@ -1762,13 +1968,39 @@ int talk_with_modem()
     {
       if ((n = read(modem_handle, tmp, sizeof(tmp) -1)) > 0)
       {
+        // 3.1.12:
+        if (log_read_from_modem)
+        {
+          char temp[SIZE_LOG_LINE];
+          int i;
+          char *answer = tmp;
+
+          snprintf(temp, sizeof(temp), "read_from_modem: got=%i:", n);
+          for (i = 0; i < n; i++)
+          {
+            if (strlen(temp) >= sizeof(temp) - 6)
+            {
+              strcpy(temp, "ERROR: too much data");
+              break;
+            }
+
+            sprintf(strchr(temp, 0), " %02X[%c]", (unsigned char) answer[i], ((unsigned char) answer[i] >= ' ') ? answer[i] : '.');
+          }
+
+          writelogfile(LOG_CRIT, 0, temp);
+        }
+
+        // 3.1.12:
+        if (DEVICE_IS_SOCKET)
+          negotiate_with_telnet(tmp, &n);
+
         write(STDOUT_FILENO, tmp, n);
         idle = 0;
       }
     }
 
     if (idle)
-      usleep(100000);
+      usleep_until(time_usec() + 100000);
   }
 
   if (modem_handle >= 0)
@@ -1803,7 +2035,7 @@ int wait_network_registration(int waitnetwork_errorsleeptime, int retry_count)
     // 3.1: signal quality is logged:
     if (retries > 0)
     {
-      put_command("AT+CSQ\r", answer, sizeof(answer), 2, "(OK)|(ERROR)");
+      put_command("AT+CSQ\r", answer, sizeof(answer), 2, EXPECT_OK_ERROR);
 
       // 3.1.5: ...with details:
       explain_csq(LOG_NOTICE, 0, answer);

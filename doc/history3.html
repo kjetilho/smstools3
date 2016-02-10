@@ -92,6 +92,160 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
 
 <h3>Version history</h3>
 
+<b>02.09.2010&nbsp;&nbsp;&nbsp;&nbsp;3.1.12</b>
+
+<ol>
+  <li><p>
+      Handling of files in the spooler directory has changed.
+      When large number of modems are serving the same queue, previously more than one modem tried to pick up the same file and in some cases 
+      this caused conflicts and performance loss. 
+      This new version will avoid conflicts by using the internal list of file candidates.
+  </p></li>
+
+  <li><p>
+      Global setting <i>devices</i> can be given in the shorten form: devices = &lt;prefix&gt;* &lt;first_number&gt; - &lt;last_number&gt;.<br>
+      For example: <b>devices = GSM* 101-164</b> produces the same as <b>devices = GSM101, GSM102, GSM103, etc. ...GSM164</b>.
+  </p></li>
+
+  <li><p>
+      Modem settings <i>device</i> and <i>logfile</i> can have a special keyword <b>modemname</b>, which is replaced with a name of a modem.<br>
+      For example:
+      <ul><p>
+        devices = USB0, USB1, USB2<br>
+        <br>
+        [default]<br>
+        device = /dev/tty<b>modemname</b> <i>produces: device = /dev/ttyUSB0 and so on...</i><br>
+        logfile = /var/log/smstools/GSM-<b>modemname</b>.log <i>produces: logfile = /var/log/smstools/GSM-USB0.log and so on...</i>
+      </p></ul>
+      </p>
+  </p></li>
+
+  <li><p>
+      It is no more mandatory that the modem section exists in the configuration file. 
+      If all settings, including <i>device</i>, are set in the <i>default</i> section, modem section can be left out.
+  </p></li>
+
+  <li><p>
+      Handling of timeout has changed. 
+      Previously smsd was expecting the whole answer from the modem in the given time, 
+      now timeout occurs if nothing is received in the given time.
+  </p></li>
+
+  <li><p>
+      Lock files contain now process ID, and name of a device. 
+      This is for monitoring purposes.
+      With large number of lock files in the spooler it is easy to see what modems are sending messages currently.
+  </p></li>
+
+  <li><p>
+      Modem commands <i>+CSQ</i> and <i>+CPIN</i> now allow "echo on". 
+      However, in the normal operation "echo" should be set to off.
+  </p></li>
+
+  <li><p>
+      When a quality of signal is logged, it's level is explained: 
+      Marginal (-95dBm or lower) / Workable (-85dBm to -95dBm) / Good (-75dBm to -85dBm) / Excellent (above -75dBm).
+  </p></li>
+
+  <li><p>
+      When reading commands from regular_run_cmdfile, the expected answer can be defined in the begin of a line, between square brackets. 
+      See the <a href="configure.html">How to configure</a> for details.
+  </p></li>
+
+  <li><p>
+      When reading a file from the spooler and waiting if it is still growing, the time of waiting is reduced from one second to half seconds.
+  </p></li>
+
+  <li><p>New setting for a modem: <i><b>smsc_pdu = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      If the number of SMSC is set in the configuration, or in the message file, the number is included in the PDU instead of changing SMSC with a command AT+CSCA.
+      The number can be presented in international format, or in national format starting with 0.
+  </p></li>
+
+  <li><p>New setting for a modem: <i><b>voicecall_clcc = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      Defines if AT+CLCC is used to detect when a call is answered.
+      This is required if modem returns OK immediately after the call and <i>voicecall_cpas</i> cannot be used.
+  </p></li>
+
+  <li><p>
+      When <i>check_memory_method</i> is set to use any CMGL method, larger buffer is used for handling the data.
+      In normal cases about 400 messages can be handled.
+      With some problematic devices the status report may contain extra padding which is almost 300 characters.
+      This causes that about 50 status reports can be handled simultaneously.
+      If this limit is reached, use some other than CMGL method.
+  </p></li>
+
+  <li><p>
+      When a device is a socket (network modem) and is using Telnet protocol, smsd uses the Q Method implementation for option negotiation.
+      Simply, every DO command is answered with WONT, and every WILL with DONT.
+      This feature is very simple, and may not work with some devices or with some options.
+      It is recommended to disable Telnet in the modem setup.
+  </p></li>
+
+  <li><p>New setting for a modem: <i><b>telnet_login = string</b></i>.<br>
+      <font size="1">Default value: <i>empty</i>.</font><br>
+      If a network modem requires telnet login, it can be defined with this setting.
+  </p></li>
+
+  <li><p>New setting for a modem: <i><b>telnet_login_prompt = string</b></i>.<br>
+      <font size="1">Default value: <i>login:</i>.</font><br>
+      If <i>telnet_login</i> is used, this setting can be used to change the login prompt.
+  </p></li>
+
+  <li><p>New setting for a modem: <i><b>telnet_login_prompt_ignore = string</b></i>.<br>
+      <font size="1">Default value: <i>Last login:</i>.</font><br>
+      If <i>telnet_login</i> is used and after successful login motd contains a string which is the same as <i>telnet_login_prompt</i>,
+      this setting can be used to define which kind of a string is ignored.
+      For example, <i>telnet_login_prompt</i> can be <i>login:</i> and <i>telnet_login_prompt_ignore</i> could be <i>Last login:</i>.
+  </p></li>
+
+  <li><p>New setting for a modem: <i><b>telnet_password = string</b></i>.<br>
+      <font size="1">Default value: <i>empty</i>.</font><br>
+      If <i>telnet_login</i> is used and device requires password, it can be defined with this setting.
+  </p></li>
+
+  <li><p>New setting for a modem: <i><b>telnet_password_prompt = string</b></i>.<br>
+      <font size="1">Default value: <i>Password:</i>.</font><br>
+      If <i>telnet_password</i> is used, this setting can be defined to change the prompt for password.
+  </p></li>
+
+</ol>
+
+<p>
+Bug fixes:
+<ol start="20">
+  <li><p>
+      A modem setting <i>trust_spool</i> did not work properly. 
+      When the spool directory was trusted, smsd did not check existence of lock files and this caused conflicts and slow performance 
+      when large number of modems were serving the same queue directory.
+  </p></li>
+
+  <li><p>
+      When headers of SMS file were handled, temporary files were created to the spooler directory. 
+      With large number of modems and slow system this caused unnecessary error messages to the log. 
+      Temporary files are now placed into the /tmp directory.
+  </p></li>
+
+  <li><p>
+      When a command was read from the regular_run_cmdfile, control characters were removed from the string. 
+      This caused that PDU termination (Ctrl-Z) could not be used.
+  </p></li>
+
+  <li><p>
+      Even when <i>modem_disabled = yes</i> was used, smsd tried to initialize modem if <i>incoming = no</i> was used. 
+      Also <i>send_startstring</i> and <i>send_stopstring</i> did not check if a modem is disabled.
+  </p></li>
+
+</ol>
+</p>
+
+<p>
+<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
+</p>
+
+<hr>
+
 <b>21.06.2010&nbsp;&nbsp;&nbsp;&nbsp;3.1.11</b>
 
 <ol>
@@ -105,10 +259,6 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
       The fix for "overlapped buffers" bug now uses it's own function containing a simple loop, instead of using memmove().
   </p></li>
 </ol>
-
-<p>
-<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
-</p>
 
 <hr>
 

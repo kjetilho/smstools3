@@ -293,26 +293,27 @@ int set_numberformat(int *numberformat, char *number, int number_type)
 // if udh is true, then udh_data contains the optional user data header in hex dump, example: "05 00 03 AF 02 01"
 
 void make_pdu(char* number, char* message, int messagelen, int alphabet, int flash_sms, int report, int with_udh,
-              char* udh_data, char* mode, char* pdu, int validity, int replace_msg, int system_msg, int number_type)
+              char* udh_data, char* mode, char* pdu, int validity, int replace_msg, int system_msg, int number_type, char *smsc)
 {
   int coding;
   int flags;
-  char tmp[50];
+  char tmp[SIZE_TO];
   char tmp2[500];
   int numberformat;
   int numberlength;
   char *p;
   int l;
+  char tmp_smsc[SIZE_SMSC];
 
   if (number[0] == 's')  // Is number starts with s, then send it without number format indicator
   {
     numberformat = NF_UNKNOWN;
-    strcpy(tmp, number +1);
+    snprintf(tmp, sizeof(tmp), "%s", number +1);
   }
   else
   {
     numberformat = NF_INTERNATIONAL;
-    strcpy(tmp, number);
+    snprintf(tmp, sizeof(tmp), "%s", number);
   }
 
   set_numberformat(&numberformat, tmp, number_type);
@@ -323,6 +324,19 @@ void make_pdu(char* number, char* message, int messagelen, int alphabet, int fla
     strcat(tmp,"F");
   // Swap every second character
   swapchars(tmp);
+
+  // 3.1.12:
+  *tmp_smsc = 0;
+  if (DEVICE.smsc_pdu && (smsc[0] || DEVICE.smsc[0]))
+  {
+    p = (smsc[0]) ? smsc : DEVICE.smsc;
+    while (*p == '+')
+      p++;
+    snprintf(tmp_smsc, sizeof(tmp_smsc), "%s", p);
+    if (strlen(tmp_smsc) % 2 && strlen(tmp_smsc) < sizeof(tmp_smsc) - 1)
+      strcat(tmp_smsc, "F");
+    swapchars(tmp_smsc);
+  }
 
   flags=1; // SMS-Sumbit MS to SMSC
   if (with_udh)
@@ -390,7 +404,14 @@ void make_pdu(char* number, char* message, int messagelen, int alphabet, int fla
     //sprintf(pdu, "00%02X00%02X%02X%s%02X%02X%02X%02X", flags, numberlength, numberformat, tmp,
     // (system_msg) ? 0x40 : (replace_msg >= 1 && replace_msg <= 7) ? 0x40 + replace_msg : 0,
     // (system_msg) ? 0xF4 : coding, validity, messagelen);
-    sprintf(pdu, "00%02X00%02X%02X%s%02X%02X%02X%02X", flags, numberlength, numberformat, tmp, proto, coding, validity, messagelen);
+
+    // 3.1.12:
+    //sprintf(pdu, "00%02X00%02X%02X%s%02X%02X%02X%02X", flags, numberlength, numberformat, tmp, proto, coding, validity, messagelen);
+    if (*tmp_smsc)
+      sprintf(pdu, "%02X%s%s", (int)strlen(tmp_smsc) / 2 + 1, (tmp_smsc[1] == '0')? "81": "91", tmp_smsc);
+    else
+      strcpy(pdu, "00");
+    sprintf(strchr(pdu, 0), "%02X00%02X%02X%s%02X%02X%02X%02X", flags, numberlength, numberformat, tmp, proto, coding, validity, messagelen);
   }
 
   /* concatenate the text to the PDU string */
@@ -1035,7 +1056,7 @@ int split_type_0(char *full_pdu, char* Src_Pointer, int* alphabet, char* sendr, 
             }
 
             for (i = 0; sendr[i]; i++)
-              if (!isdigit(sendr[i]))
+              if (!isdigitc(sendr[i]))
               {
                 // Not a fatal error (?)
                 //pdu_error(err_str, 0, Src_Pointer -full_pdu, Length +padding, "Invalid character(s) in sender address: \"%s\"", sendr);
@@ -1089,7 +1110,7 @@ int split_type_0(char *full_pdu, char* Src_Pointer, int* alphabet, char* sendr, 
             {
               Src_Pointer += 2;
               sprintf(date,"%c%c-%c%c-%c%c",Src_Pointer[1],Src_Pointer[0],Src_Pointer[3],Src_Pointer[2],Src_Pointer[5],Src_Pointer[4]);
-              if (!isdigit(date[0]) || !isdigit(date[1]) || !isdigit(date[3]) || !isdigit(date[4]) || !isdigit(date[6]) || !isdigit(date[7]))
+              if (!isdigitc(date[0]) || !isdigitc(date[1]) || !isdigitc(date[3]) || !isdigitc(date[4]) || !isdigitc(date[6]) || !isdigitc(date[7]))
               {
                 pdu_error(err_str, 0, Src_Pointer -full_pdu, 6, "Invalid character(s) in date of Service Centre Time Stamp: \"%s\"", date);
                 *date = 0;
@@ -1104,7 +1125,7 @@ int split_type_0(char *full_pdu, char* Src_Pointer, int* alphabet, char* sendr, 
 
               Src_Pointer += 6;
               sprintf(time,"%c%c:%c%c:%c%c",Src_Pointer[1],Src_Pointer[0],Src_Pointer[3],Src_Pointer[2],Src_Pointer[5],Src_Pointer[4]);
-              if (!isdigit(time[0]) || !isdigit(time[1]) || !isdigit(time[3]) || !isdigit(time[4]) || !isdigit(time[6]) || !isdigit(time[7]))
+              if (!isdigitc(time[0]) || !isdigitc(time[1]) || !isdigitc(time[3]) || !isdigitc(time[4]) || !isdigitc(time[6]) || !isdigitc(time[7]))
               {
                 pdu_error(err_str, 0, Src_Pointer -full_pdu, 6, "Invalid character(s) in time of Service Centre Time Stamp: \"%s\"", time);
                 *time = 0;
@@ -1258,7 +1279,7 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
               }
 
               for (i = 0; sendr[i]; i++)
-                if (!isdigit(sendr[i]))
+                if (!isdigitc(sendr[i]))
                 {
                   // Not a fatal error (?)
                   //pdu_error(err_str, 0, Src_Pointer -full_pdu, Length +padding, "Invalid character(s) in recipient address: \"%s\"", sendr);
@@ -1278,7 +1299,7 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
             {
               // get SMSC timestamp
               sprintf(date,"%c%c-%c%c-%c%c",Src_Pointer[1],Src_Pointer[0],Src_Pointer[3],Src_Pointer[2],Src_Pointer[5],Src_Pointer[4]);
-              if (!isdigit(date[0]) || !isdigit(date[1]) || !isdigit(date[3]) || !isdigit(date[4]) || !isdigit(date[6]) || !isdigit(date[7]))
+              if (!isdigitc(date[0]) || !isdigitc(date[1]) || !isdigitc(date[3]) || !isdigitc(date[4]) || !isdigitc(date[6]) || !isdigitc(date[7]))
               {
                 pdu_error(err_str, 0, Src_Pointer -full_pdu, 6, "Invalid character(s) in date of SMSC Timestamp: \"%s\"", date);
                 *date = 0;
@@ -1293,7 +1314,7 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
 
               Src_Pointer += 6;
               sprintf(time,"%c%c:%c%c:%c%c",Src_Pointer[1],Src_Pointer[0],Src_Pointer[3],Src_Pointer[2],Src_Pointer[5],Src_Pointer[4]);
-              if (!isdigit(time[0]) || !isdigit(time[1]) || !isdigit(time[3]) || !isdigit(time[4]) || !isdigit(time[6]) || !isdigit(time[7]))
+              if (!isdigitc(time[0]) || !isdigitc(time[1]) || !isdigitc(time[3]) || !isdigitc(time[4]) || !isdigitc(time[6]) || !isdigitc(time[7]))
               {
                 pdu_error(err_str, 0, Src_Pointer -full_pdu, 6, "Invalid character(s) in time of SMSC Timestamp: \"%s\"", time);
                 *time = 0;
@@ -1327,8 +1348,8 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
             {
               // get Discharge timestamp
               sprintf(temp,"%c%c-%c%c-%c%c %c%c:%c%c:%c%c",Src_Pointer[1],Src_Pointer[0],Src_Pointer[3],Src_Pointer[2],Src_Pointer[5],Src_Pointer[4],Src_Pointer[7],Src_Pointer[6],Src_Pointer[9],Src_Pointer[8],Src_Pointer[11],Src_Pointer[10]);
-              if (!isdigit(temp[0]) || !isdigit(temp[1]) || !isdigit(temp[3]) || !isdigit(temp[4]) || !isdigit(temp[6]) || !isdigit(temp[7]) || 
-                  !isdigit(temp[9]) || !isdigit(temp[10]) || !isdigit(temp[12]) || !isdigit(temp[13]) || !isdigit(temp[15]) || !isdigit(temp[16]))
+              if (!isdigitc(temp[0]) || !isdigitc(temp[1]) || !isdigitc(temp[3]) || !isdigitc(temp[4]) || !isdigitc(temp[6]) || !isdigitc(temp[7]) || 
+                  !isdigitc(temp[9]) || !isdigitc(temp[10]) || !isdigitc(temp[12]) || !isdigitc(temp[13]) || !isdigitc(temp[15]) || !isdigitc(temp[16]))
                 pdu_error(err_str, 0, Src_Pointer -full_pdu, 12, "Invalid character(s) in Discharge Timestamp: \"%s\"", temp);
               else if (atoi(temp +3) > 12 || atoi(temp +6) > 31 || atoi(temp +9) > 24 || atoi(temp +12) > 59 || atoi(temp +16) > 59)
               {
@@ -1549,7 +1570,7 @@ int splitpdu(char *pdu, char *mode, int *alphabet, char *sendr, char *date, char
                     if (smsc[Length -1] == 'F')
                       smsc[Length -1] = 0;
                     for (i = 0; smsc[i]; i++)
-                      if (!isdigit(smsc[i]))
+                      if (!isdigitc(smsc[i]))
                       {
                         // Not a fatal error (?)
                         //pdu_error(&err_str, 0, Pointer -pdu, Length, "Invalid character(s) in numeric SMSC address: \"%s\"", smsc);
