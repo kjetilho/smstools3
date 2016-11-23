@@ -224,8 +224,9 @@ char ext_charset[] = { 0x0C, 0x0A, // <FF>
 
 // This table is used for outgoing (to GSM) conversion only:
 
-char iso_8859_15_chars[] =
-{
+char iso_8859_15_chars[] = {
+	0x80, 0x20, // 3.1.16beta: NONBREAKABLE SPACE --> SPACE
+	0x09, 0x20, // 3.1.16beta: TAB --> SPACE
 	0x60, 0x27, // GRAVE ACCENT --> APOSTROPHE
 	0xA0, 0x20, // NO-BREAK SPACE --> SPACE
 	0xA2, 0x63, // CENT SIGN --> c

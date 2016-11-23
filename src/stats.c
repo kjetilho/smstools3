@@ -370,10 +370,16 @@ void write_status()
       if ((fp = fopen(fname_tmp, "w")))
       {
         if (!longest_modemname)
+        {
           for (i = 0; i < NUMBER_OF_MODEMS; i++)
             if (devices[i].name[0])
               if (strlen(devices[i].name) > longest_modemname)
                 longest_modemname = strlen(devices[i].name);
+
+          if (status_include_uptime)
+            if (longest_modemname < 5) // "Start"
+              longest_modemname = 5;
+        }          
 
         t = time(0);
         strftime(buffer, sizeof(buffer), datetime_format, localtime(&t));
@@ -438,6 +444,16 @@ void write_status()
 
           fprintf(fp, "\n");
         }  
+
+        // 3.1.16beta:
+        if (status_include_uptime)
+        {
+          char upstr[64];
+          
+          strftime(buffer, sizeof(buffer), datetime_format, localtime(&process_start_time));
+          make_uptime_string(upstr, sizeof(upstr), t - process_start_time);
+          fprintf(fp, "\nStart:%s\t%s,\tup %s\n", (longest_modemname >= 7)? "\t" : "", buffer, upstr);
+        }
 
         fclose(fp);
 

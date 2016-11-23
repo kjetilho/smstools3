@@ -16,7 +16,11 @@ Either version 2 of the License, or (at your option) any later version.
 #ifndef LOGGING_H
 #define LOGGING_H
 
-int trouble_logging_started;
+#include <time.h>
+
+// 3.1.16beta:
+//int trouble_logging_started;
+time_t trouble_logging_started;
 
 int change_loglevel(int new_level);
 void restore_loglevel();

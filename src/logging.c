@@ -32,6 +32,8 @@ int SavedLevel;
 int Filehandle_trouble = -1;
 char *trouble_logging_buffer = 0;
 int last_flush_was_clear = 1;
+unsigned long long trouble_logging_start_time = 0; // 3.1.16beta. For total time of continuous trouble.
+int logging_start_printed = 0; // 3.1.16beta.
 
 int change_loglevel(int new_level)
 {
@@ -94,7 +96,7 @@ int openlogfile(char *filename, int facility, int level)
     {
       result = Filehandle;
 
-      if (smart_logging && level < 7)
+      if (smart_logging) // 3.1.16beta. && level < 7)
       {
         char filename2[PATH_MAX];
         int error = 0;
@@ -160,6 +162,7 @@ void closelogfile()
   }
 
   trouble_logging_started = 0;
+  trouble_logging_start_time = 0;
 }
 
 void writelogfile0(int severity, int trouble, char *text)
@@ -205,17 +208,45 @@ void writelogfile(int severity, int trouble, char* format, ...)
     }
   }
 
-  if (smart_logging && Level < 7)
+  if (smart_logging) // 3.1.16beta. && Level < 7)
   {
+    // 3.1.16beta: Mark the start of communication:
+    if (!logging_start_printed)
+    {
+      logging_start_printed = 1;
+
+      make_datetime_string(timestamp, sizeof(timestamp), 0, 0, logtime_format);
+      snprintf(text2, sizeof(text2),"%s,%i, %s: Start:\n", timestamp, severity, process_title);
+      strcat_realloc(&trouble_logging_buffer, text2, 0);
+    }
+
     if (trouble)
     {
       if (!trouble_logging_started)
       {
         trouble_logging_started = 1;
 
+        // 3.1.16beta:
+        if (!trouble_logging_start_time)
+        {
+          if (put_command_sent)
+            trouble_logging_start_time = put_command_sent;
+          else
+            trouble_logging_start_time = time_usec();
+        }
+
         // Global process_id is the same as int device in many functions calls.
         if (process_id >= 0)
           statistics[process_id]->status = 't';
+
+        // 3.1.16beta: Mark the start of trouble (not when a process is starting, value 2):
+        if (trouble == 1)
+        {
+          make_datetime_string(timestamp, sizeof(timestamp), 0, 0, logtime_format);
+          snprintf(text2, sizeof(text2),"%s,%i, %s: Trouble:\n", timestamp, severity, process_title);
+          strcat_realloc(&trouble_logging_buffer, text2, 0);
+        }
+
       }
     }
 
@@ -226,41 +257,79 @@ void writelogfile(int severity, int trouble, char* format, ...)
     if (text2[strlen(text2) -1] != '\n')
       strcpy(text2 +sizeof(text2) -5, "...\n");
 
-    if (!trouble_logging_buffer)
-    {
-      if ((trouble_logging_buffer = (char *)malloc(strlen(text2) +1)))
-        *trouble_logging_buffer = 0;
-    }
-    else
-      trouble_logging_buffer = (char *)realloc((void *)trouble_logging_buffer, strlen(trouble_logging_buffer) +strlen(text2) +1);
-
-    if (trouble_logging_buffer)
-      strcat(trouble_logging_buffer, text2);
+    strcat_realloc(&trouble_logging_buffer, text2, 0);
   }
+}
+
+int make_duration_string(char *dest, size_t size_dest, unsigned long long time_start, unsigned long long time_now)
+{
+  int duration;
+
+  *dest = 0;
+
+  duration = (int)(time_now - time_start) / 100000;
+  if (duration >= 10)
+  {
+    if (duration < 600)
+      snprintf(dest, size_dest, "%.1f sec.", (double)duration / 10);
+    else
+    {
+      duration = (int)duration / 10;
+      snprintf(dest, size_dest, "%i min %i sec.", (int)duration / 60, (int)(duration - duration / 60 * 60));
+    }
+
+    return 1;
+  }
+
+  return 0;
 }
 
 void flush_smart_logging()
 {
+  static unsigned long long last_flush_time = 0; // 3.1.16beta.
+  char text2[SIZE_LOG_LINE];
+  char timestamp[40];
+  char duration[64];
 
   if (trouble_logging_started && trouble_logging_buffer)
   {
-     write(Filehandle_trouble, trouble_logging_buffer, strlen(trouble_logging_buffer));
-     last_flush_was_clear = 0;
+    write(Filehandle_trouble, trouble_logging_buffer, strlen(trouble_logging_buffer));
+    last_flush_was_clear = 0;
+    last_flush_time = time_usec();
+
+    if (trouble_logging_start_time)
+    {
+      make_duration_string(duration, sizeof(duration), trouble_logging_start_time, last_flush_time);
+      make_datetime_string(timestamp, sizeof(timestamp), 0, 0, logtime_format);
+      snprintf(text2, sizeof(text2), "%s,%i, %s: (flush) %s\n", timestamp, LOG_NOTICE, process_title, duration);
+      write(Filehandle_trouble, text2, strlen(text2));
+    }
   }
   else
   {
     // 3.1.6: If some errors were printed and now all is ok, print it to the log:
     if (!last_flush_was_clear && Filehandle_trouble >= 0)
     {
-      char text2[SIZE_LOG_LINE];
-      char timestamp[40];
+      char trouble_time[128];
 
       make_datetime_string(timestamp, sizeof(timestamp), 0, 0, logtime_format);
-      snprintf(text2, sizeof(text2), "%s,%i, %s: %s\n", timestamp, LOG_NOTICE, process_title, "Everything ok now.");
+
+      // 3.1.16beta:
+      //snprintf(text2, sizeof(text2), "%s,%i, %s: %s\n", timestamp, LOG_NOTICE, process_title, "Everything ok now.");
+      *trouble_time = 0;
+      if (trouble_logging_start_time && last_flush_time)
+        if (make_duration_string(duration, sizeof(duration), trouble_logging_start_time, last_flush_time))
+          snprintf(trouble_time, sizeof(trouble_time), " Duration of trouble was %s", duration);
+
+      snprintf(text2, sizeof(text2), "%s,%i, %s: %s%s\n", timestamp, LOG_NOTICE, process_title, "Everything ok now.", trouble_time);
       write(Filehandle_trouble, text2, strlen(text2));
     }
 
     last_flush_was_clear = 1;
+    logging_start_printed = 0;
+    trouble_logging_start_time = 0;
+    put_command_sent = 0;
+    last_flush_time = 0;
   }
 
   trouble_logging_started = 0;

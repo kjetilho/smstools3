@@ -86,6 +86,211 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
 
 <h3>Version history</h3>
 
+<b>08.06.2016&nbsp;&nbsp;&nbsp;&nbsp;3.1.16beta</b>
+
+<p>
+The main focus with this version is on Telnet.
+Most devices need CRLF when communicating, and this is now default.
+Also subnegotiation is fixed, as it did not work properly in all cases.
+With these changes SMSTools3 now works well with devices like
+<i>ConiuGo GPRS GSM Quadband Modem LAN</i>.
+Thanks to <a href="http://www.wireless-netcontrol.com" target="_blank">wireless netcontrol GmbH</a>
+for the test device.
+</p>
+<p>
+Telnet devices with multiple modules will also work, however this enhancement is not tested by me with such a device.
+Module selection is based on the patch which was published by the user <i>unterwulf</i> on the support forum
+on <a href="http://smstools3.kekekasvi.com/topic.php?post=4096#post4096" target="_blank">this post</a>.
+</p>
+
+<p>
+Documentation is not yet updated. It will be done after beta status has gone.
+</p>
+
+<p>
+Any feedback is valuable.
+</p>
+
+<p>
+<ol>
+
+  <li><p>
+      New setting for a modem: <i><b>telnet_crlf = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>yes</i>.</font><br>
+      Defines if CRLF is used instead of LF when communicating with Telnet.
+      This defaults to <i>yes</i>, because many if not all Telnet servers require CRLF.
+  </p></li>
+
+  <li><p>
+      New settings for a modem:<br> 
+      <i><b>telnet_cmd_prompt = string</b></i>.<br>
+      <font size="1">Default value: <i>empty</i>.</font><br>
+      <i><b>telnet_cmd = string</b></i>.<br>
+      <font size="1">Default value: <i>empty</i>.</font><br>
+      Some devices have more than one modem modules, and the Telnet interface wants to know what module
+      to use. The interface may prompt something like "<b><i>module1, module2, state1, state2, info.</i></b>",
+      as PORTech MV-372 does. For example the command <b><i>module1</i></b> should be sent to the interface.
+      Use communication mode or some Telnet client to see what exactly is the prompt.
+      Define it as <i>telnet_cmd_prompt</i>, exactly as it was received.
+      Define suitable command as <i>telnet_cmd</i>.
+      Whenever the prompt occurs in traffic, the cmd is sent and wanted module is selected.
+  </p></li>
+
+  <li><p>
+      Multiple socket devices are now allowed to use the same IP and port.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>wakeup_init = string</b></i>.<br>
+      <font size="1">Default value: <i>empty</i>.</font><br>
+      Defines a string or command which is sent to the device when it is initialized, before anything
+      else is done. Any or missing answer is accepted, and smsd continues after a small delay.
+  </p></li>
+
+  <li><p>
+      New header in incoming/sent/failed message files: <i><b>IMEI: number</b></i>. 
+      Tells the IMEI of a modem which handled the message.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>report_read_timeouts = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      Defines if all timeout values are written to the log when modem process starts.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>read_timeout_XXX = number</b></i>.<br>
+      <font size="1">Default value: <i>varies</i>.</font><br>
+      Defines a timeout for XXX operation.
+      Use <i>report_read_timeouts = yes</i> to see possible operations (XXX) and current values.
+      </p><p>
+      This is for problematic environments, usually there is no need to change any value.
+      Minimum value is 1.
+      The value defines how many <i>read_timeout</i>'s are spent.
+      The setting <i>read_timeout</i> is in seconds and defaults to 5.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>send_retries = number</b></i>.<br>
+      <font size="1">Default value: <i>2</i>.</font><br>
+      Defines how many times smsd will retry if sending fails.
+  </p></li>
+
+  <li><p>
+      New header in outgoing message file: <i><b>Retries: number</b></i>. 
+      Defines how many times smsd will retry if sending fails. This overrides <i>send_retries</i> setting.
+  </p></li>
+
+  <li><p>
+      New global setting: <i><b>log_response_time = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      With this setting response time in milliseconds is included in the log.
+  </p></li>
+
+  <li><p>
+      New global setting: <i><b>status_include_uptime = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      Defines if start timestamp and uptime are printed to the end of status file, with empty line as delimiter.
+      For example:
+<pre>
+Status:     16-06-07 00:16:49, irrri-------
+SONERA:     16-06-07 00:16:45, Idle,      131267, 0, 4666, ssi: -71 dBm (Excellent), ber: < 0.2 %
+ELISA:      16-06-07 00:16:45, Receiving, 133877, 3, 4741, ssi: -79 dBm (Good), ber: < 0.2 %
+DNA:        16-06-07 00:16:47, Receiving, 127181, 0, 4708, ssi: -65 dBm (Excellent), ber: < 0.2 %
+SAUNALAHTI: 16-06-07 00:16:48, Receiving, 128495, 1, 4678, ssi: -79 dBm (Good), ber: < 0.2 %
+SAUNA2:     16-06-07 00:16:45, Idle,      5640,   9, 488,  ssi: -77 dBm (Good), ber: < 0.2 %
+
+Start:      16-04-03 19:30:38, up 64 days, 4:46
+</pre>
+      This setting defaults to <i>no</i>, so that existing external parsers or applications are not affected.
+  </p></li>
+
+  <li><p>
+      When communicating with device, like <b><i>smsd -C GSM1</i></b>, alternative for Ctrl-Z
+      can be defined using <b><i>-zx</i></b> argument.
+      Single byte character is accepted as <b><i>x</i></b>.
+  </p></li>
+
+  <li><p>
+      When communicating with device, ECHO ON is set automatically.
+  </p></li>
+
+  <li><p>
+      When performing outgoing character set conversion with GSM alphabet, Nonbreakable space and Tab are changed to Space.
+  </p></li>
+
+  <li><p>
+      When moving files between directories, fopen failures are logged and smsd retries after a small delay.
+  </p></li>
+
+  <li><p>
+      Empty outgoing files are ignored as before, and now files smaller than 8 bytes are ignored too.
+  </p></li>
+
+  <li><p>
+      If a file has no access, smsd retries once after a small delay.
+  </p></li>
+
+  <li><p>
+      Temporary files are now using TMPDIR or TEMPDIR environment variable for the path, if available.
+  </p></li>
+
+  <li><p>
+      When smsd processes sleeps, they sleep longer time at once and less often to reduce CPU load.
+  </p></li>
+
+  <li><p>
+      Mainspooler will reap stopped (&lt;defunct&gt;) modem processes.
+  </p></li>
+
+  <li><p>
+      Smart logging is done even when the loglevel is below 7 (debug).
+  </p></li>
+
+  <li><p>
+      Total time of continuous trouble is logged.
+  </p></li>
+
+  <li><p>
+      "device busy, waiting" is not logged anymore.
+  </p></li>
+
+  <li><p>
+      When a modem is first time initialized, smsd tries to set verbose mode if necessary.
+  </p></li>
+
+</ol>
+</p>
+
+<p>
+Bug fixes:
+<ol start="25">
+  <li><p>
+      Fixed a Telnet subnegotiation processing method.
+  </p></li>
+
+  <li><p>
+      When a file is locked, fsync is used instead of sync after close.
+      This caused remarkable delays on large servers when smsd was running as root.
+  </p></li>
+
+  <li><p>
+      When queues are used, <i>queues</i> setting for a modem is no more mandatory if <i>outgoing</i> is disabled.
+  </p></li>
+
+  <li><p>
+      When defining <i>queues</i> or <i>priviledged_numbers</i> for modems, initial values from [default] section are now completely ignored.
+  </p></li>
+
+</ol>
+</p>
+
+<p>
+<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
+</p>
+
+<hr>
+
 <b>21.10.2012&nbsp;&nbsp;&nbsp;&nbsp;3.1.15</b>
 
 <p>

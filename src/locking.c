@@ -48,8 +48,9 @@ int lockfile( char*  filename)
                (process_id == -1) ? "MAINPROCESS" : DEVICE.name);
 
       write(lockfile, pid, strlen(pid));
+      // 3.1.16beta: Fix: Use fsync instead of sync after close:
+      fsync(lockfile);
       close(lockfile);
-      sync();
       return 1;
     }
   }
@@ -76,6 +77,7 @@ int islocked( char*  filename)
 int unlockfile( char*  filename)
 {
   char lockfilename[PATH_MAX +5];
+  struct stat statbuf;
 
   if (!filename)
     return 0;
@@ -84,7 +86,8 @@ int unlockfile( char*  filename)
 
   strcpy(lockfilename,filename);
   strcat(lockfilename,".LOCK");
-  if (unlink(lockfilename))
-    return 0;
+  if (!stat(lockfilename, &statbuf)) // 3.1.16beta: Check if file exists
+    if (unlink(lockfilename))
+      return 0;
   return 1;
 }

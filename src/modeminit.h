@@ -20,6 +20,10 @@ char *get_gsm_cme_error(int code);
 char *get_gsm_cms_error(int code);
 char *get_gsm_error(char *answer);
 
+int get_read_timeout(char *keyword);
+int set_read_timeout(char *error, int size_error, char *keyword, int value);
+void log_read_timeouts(int level);
+
 char *explain_csq_buffer(char *buffer, int short_form, int ssi, int ber, int signal_quality_ber_ignore);
 void explain_csq(int loglevel, int short_form, char *answer, int signal_quality_ber_ignore);
 
@@ -56,8 +60,8 @@ int initialize_modem_receiving();
 // timeout control the time how long to wait for the answer
 // expect is an extended regular expression. If this matches the modem answer, 
 // then the program stops waiting for the timeout (may be empty or NULL).
-int put_command(char *command, char *answer, int max, int timeout_count, char *expect);
-int put_command0(char *command, char *answer, int max, int timeout_count, char *expect, int silent);
+int put_command(char *command, char *answer, int max, char *timeout_count, char *expect);
+int put_command0(char *command, char *answer, int max, char *timeout_count, char *expect, int silent);
 
 int talk_with_modem();
 

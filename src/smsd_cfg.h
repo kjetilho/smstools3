@@ -99,6 +99,7 @@ Either version 2 of the License, or (at your option) any later version.
 
 // For put_command() calls:
 #define EXPECT_OK_ERROR "(OK)|(ERROR)"
+#define EXPECT_OK_ERROR_0_4 "(OK)|(ERROR)|(0)|(4)" // 3.1.16beta.
 
 #define TELNET_LOGIN_PROMPT_DEFAULT "login:"
 #define TELNET_LOGIN_PROMPT_IGNORE_DEFAULT "Last login:"
@@ -116,6 +117,8 @@ time_t process_start_time;
 int modem_handle;               // Handle for modem.
 
 int put_command_timeouts;
+unsigned long long put_command_sent; // 3.1.16beta.
+char tmpdir[PATH_MAX];          // 3.1.16beta.
 
 typedef struct
 {
@@ -133,6 +136,7 @@ typedef struct
   int device_open_errorsleeptime; // 3.1.7: Sleeping time after opening error.
   int device_open_alarm_after;  // 3.1.7: Defines after how many failures an alarmhandler is called.
   char identity[SIZE_IDENTITY]; // Identification asked from the modem (CIMI)
+  char imei[SIZE_IDENTITY]; 	// 3.1.16beta: IMEI asked from the modem (CGSN)
   char conf_identity[SIZE_IDENTITY]; // Identification set in the conf file (CIMI)
   //char identity_header[SIZE_TO];// Title of current identification (IMSI)
   char queues[NUMBER_OF_MODEMS][32]; // Assigned queues
@@ -226,10 +230,16 @@ typedef struct
   char telnet_login_prompt_ignore[64];
   char telnet_password[64];
   char telnet_password_prompt[64];
+  char telnet_cmd[64]; // 3.1.16beta.
+  char telnet_cmd_prompt[100]; // 3.1.16beta.
+  int telnet_crlf; // 3.1.16beta.
+  char wakeup_init[64]; // 3.1.16beta.
   int signal_quality_ber_ignore; // 3.1.14.
   int verify_pdu; // 3.1.14.
   int loglevel_lac_ci; // 3.1.14.
   int log_not_registered_after; // 3.1.14.
+  int send_retries; // 3.1.16beta.
+  int report_read_timeouts; // 3.1.16beta.
 } _device;
 
 // NOTE for regular run intervals: effective value is at least delaytime.
@@ -288,6 +298,7 @@ char adminmessage_device[32];   // Name of device used to send administrative me
 int smart_logging;              // 1 = if loglevel is less than 7, degug log is written is there has been any errors.
 int status_signal_quality;      // 1 = signal quality is written to status file.
 int status_include_counters;    // 1 = succeeded, failed and received counters are included in the status line.
+int status_include_uptime;      // 3.1.16beta: 1 = include started & uptime line in the status file.
 int hangup_incoming_call;       // 1 = if detected unexpected input contains RING and we want to end call.
 int max_continuous_sending;     // Defines when sending is breaked to do check/do other tasks. Time in minutes.
 int voicecall_hangup_ath;       // If ATH is used instead of AT+CHUP.
@@ -321,6 +332,9 @@ int spool_directory_order;
 
 // 3.1.9: 1 if read_from_modem is logged.
 int log_read_from_modem;
+
+// 3.1.16beta:
+int log_response_time;
 
 int message_count;              // Counter for sent messages. Multipart message is one message.
 
@@ -393,6 +407,8 @@ int shell_test;
 // Next two are for debugging purposes:
 int enable_smsd_debug;
 char smsd_debug[SIZE_SMSD_DEBUG]; // Header of an outgoing message file.
+
+char arg_ctrlz; // 3.1.16beta. Character to use as Ctrl-Z in communication mode.
 
 /* initialize all variable with default values */
 

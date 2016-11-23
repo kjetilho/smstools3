@@ -35,6 +35,7 @@ Either version 2 of the License, or (at your option) any later version.
 #include "whitelist.h"
 #include "alarm.h"
 #include "logging.h"
+#include "modeminit.h"
 
 int conf_ask = 0;
 char *yesno_error = "Invalid %s value: %s\n";
@@ -206,6 +207,7 @@ void initcfg()
   smart_logging = 0;
   status_signal_quality = 1;
   status_include_counters = 1;
+  status_include_uptime = 0; // 3.1.16beta.
   hangup_incoming_call = 0;
   max_continuous_sending = 5 *60;
   voicecall_hangup_ath = 0;
@@ -215,6 +217,8 @@ void initcfg()
   spool_directory_order = 0;
 
   trim_text = 1;
+
+  log_response_time = 0; // 3.1.16beta.
 
   message_count = 0;
 
@@ -340,10 +344,16 @@ void initcfg()
     snprintf(devices[i].telnet_login_prompt_ignore, sizeof(devices[i].telnet_login_prompt_ignore), "%s", TELNET_LOGIN_PROMPT_IGNORE_DEFAULT);
     devices[i].telnet_password[0] = 0;
     snprintf(devices[i].telnet_password_prompt, sizeof(devices[i].telnet_password_prompt), "%s", TELNET_PASSWORD_PROMPT_DEFAULT);
+    devices[i].telnet_cmd[0] = 0;
+    devices[i].telnet_cmd_prompt[0] = 0;
+    devices[i].telnet_crlf = 1;
+    devices[i].wakeup_init[0] = 0;
     devices[i].signal_quality_ber_ignore = 0;
     devices[i].verify_pdu = 0;
     devices[i].loglevel_lac_ci = 6;
     devices[i].log_not_registered_after = 0;
+    devices[i].send_retries = 2;
+    devices[i].report_read_timeouts = 0;
   }
   startup_err_str = NULL;
   startup_err_count = 0;
@@ -863,6 +873,12 @@ int readcfg()
           startuperror(yesno_error, name, value);
       }
       else
+      if (strcasecmp(name,"status_include_uptime")==0)
+      {
+        if ((status_include_uptime = yesno_check(ask_value(0, name, value))) == -1)
+          startuperror(yesno_error, name, value);
+      }
+      else
       if (strcasecmp(name,"trust_outgoing")==0)
       {
         if ((trust_outgoing = yesno_check(ask_value(0, name, value))) == -1)
@@ -923,6 +939,12 @@ int readcfg()
       if (strcasecmp(name,"shell_test")==0)
       {
         if ((shell_test = yesno_check(ask_value(0, name, value))) == -1)
+          startuperror(yesno_error, name, value);
+      }
+      else
+      if (strcasecmp(name,"log_response_time")==0)
+      {
+        if ((log_response_time = yesno_check(ask_value(0, name, value))) == -1)
           startuperror(yesno_error, name, value);
       }
       else
@@ -1130,6 +1152,10 @@ int readcfg()
                 if (strcasecmp(name,"queues")==0)
 	        {
                   ask_value(NEWDEVICE.name, name, value);
+
+                  // 3.1.16beta: Fix: Forget previous values (from [default] section):
+                  for (j = 0; j < NUMBER_OF_MODEMS; j++)
+                    NEWDEVICE.queues[j][0] = 0;
 
                   // 3.1.5: special queuename:
                   if ((p = strstr(value, "modemname")))
@@ -1476,6 +1502,9 @@ int readcfg()
                 {
                   ask_value(NEWDEVICE.name, name, value);
 
+                  // 3.1.16beta: Fix: Forget previous values (from [default] section):
+                  NEWDEVICE.priviledged_numbers[0] = 0;
+
                   for (j = 1; ; j++)
                   {
                     if (j >= 25)
@@ -1662,6 +1691,21 @@ int readcfg()
                 if (strcasecmp(name,"telnet_password_prompt")==0)
                   strcpy2(NEWDEVICE.telnet_password_prompt, ask_value(NEWDEVICE.name, name, value));
                 else
+                if (strcasecmp(name,"telnet_cmd")==0)
+                  strcpy2(NEWDEVICE.telnet_cmd, ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"telnet_cmd_prompt")==0)
+                  strcpy2(NEWDEVICE.telnet_cmd_prompt, ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"telnet_crlf")==0)
+                {
+    	          if ((NEWDEVICE.telnet_crlf = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
+                    startuperror(yesno_error, name, value);
+                }
+                else
+                if (strcasecmp(name,"wakeup_init")==0)
+                  strcpy2(NEWDEVICE.wakeup_init, ask_value(NEWDEVICE.name, name, value));
+                else
                 if (strcasecmp(name,"signal_quality_ber_ignore")==0)
                 {
     	          if ((NEWDEVICE.signal_quality_ber_ignore = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
@@ -1679,6 +1723,25 @@ int readcfg()
                 else
                 if (strcasecmp(name,"log_not_registered_after")==0)
 	          NEWDEVICE.log_not_registered_after=atoi(ask_value(NEWDEVICE.name, name, value));
+                else
+                if (strcasecmp(name,"send_retries")==0)
+ 	          NEWDEVICE.send_retries=atoi(ask_value(NEWDEVICE.name, name, value));
+                else
+                if (!strncmp(name, "read_timeout_", 13))
+                {
+                  char result[256];
+
+                  ask_value(NEWDEVICE.name, name, value);
+
+                  if (!set_read_timeout(result, sizeof(result), name + 13, atoi(value)))
+                    startuperror("Modem %s: %s\n", NEWDEVICE.name, result);
+                }
+                else
+                if (strcasecmp(name,"report_read_timeouts")==0)
+                {
+    	          if ((NEWDEVICE.report_read_timeouts = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
+                    startuperror(yesno_error, name, value);
+                }
                 else
 	          startuperror("Unknown setting for modem %s: %s\n", NEWDEVICE.name, name);
               }
@@ -1712,7 +1775,9 @@ int readcfg()
   }
   else
   {
-    fprintf(stderr,"Cannot open config file for read.\n");
+    // 3.1.16beta: Show the path and the error:
+    //fprintf(stderr,"Cannot open config file for read.\n");
+    fprintf(stderr, "Cannot open config file %s for read: %s\n", configfile, strerror(errno));
     return 0;
   }
   return 1;
@@ -1824,7 +1889,8 @@ void help()
   printf("         -s  display status monitor\n");
 #endif
   printf("         -t  run smsd in terminal\n");
-  printf("         -C  Communicate with device\n\n");
+  printf("         -C  Communicate with device\n");
+  printf("         -zx set Ctrl-Z alternative character in communication mode\n");
   printf("         -V  print copyright and version\n\n");
   printf("All other options are set by the file %s.\n\n", configfile); 
   printf("Output is written to stdout, errors are written to stderr.\n\n");
@@ -1847,6 +1913,7 @@ void parsearguments(int argc,char** argv)
   communicate[0] = 0;
   arg_7bit_packed[0] = 0;
   do_encode_decode_arg_7bit_packed = 0;
+  arg_ctrlz = 0;
 
   // 3.1.1: Start and stop options are provided by the script, not by the daemon:
   for (i = 1; i < argc; i++)
@@ -1861,7 +1928,7 @@ void parsearguments(int argc,char** argv)
 
   do
   {
-    result=getopt(argc,argv,"asthc:D:E:Vi:p:l:n:u:g:C:");
+    result = getopt(argc, argv, "asthc:D:E:Vi:p:l:n:u:g:C:z:");
     switch (result)
     {
       case 'a': conf_ask = 1;
@@ -1906,6 +1973,14 @@ void parsearguments(int argc,char** argv)
       case 'E': snprintf(arg_7bit_packed, sizeof(arg_7bit_packed), "%s", optarg);
                 do_encode_decode_arg_7bit_packed = (result == 'E') ? 1 : 2;
                 break;
+      case 'z': // 3.1.16beta: Ctrl-Z alternative.
+        if (strlen(optarg) > 1)
+        {
+          printf("Error: Can only use single byte character for Ctrl-Z alternative.\n");
+          exit(0);
+        }
+        arg_ctrlz = *optarg;
+        break;
     }
   }
   while (result>0);
@@ -2237,7 +2312,7 @@ int startup_check(int result)
 #endif
 
       if (queues[0].name[0])
-        if (devices[x].queues[0][0] == 0)
+        if (devices[x].queues[0][0] == 0 && devices[x].outgoing) // 3.1.16beta: Queue is not required if outgoing is disabled.
           wrlogfile(&result, "Queues are used, but %s has no queue(s) defined.", devices[x].name);
 
       if (devices[x].eventhandler[0] && strcmp(eventhandler, devices[x].eventhandler) != 0 && executable_check)
@@ -2367,14 +2442,17 @@ int startup_check(int result)
       if (!value_in(devices[x].check_network, 3, 0, 1, 2))
         wrlogfile(&result, "Device %s has invalid value for check_network (%i).", devices[x].name, devices[x].check_network);
 
-      // 3.1.7: Devices cannot have the same port.
-      for (y = 0; y < NUMBER_OF_MODEMS; y++)
+      // 3.1.7: Devices cannot have the same port. 3.1.16beta: Network device can have.
+      if (!DEVICE_X_IS_SOCKET)
       {
-        if (y == x)
-          continue;
-        if (devices[y].name[0] && devices[y].device[0])
-          if (strcmp(devices[y].device, devices[x].device) == 0)
-            wrlogfile(&result, "Devices %s and %s has the same port ( device = %s ).", devices[x].name, devices[y].name, devices[x].device);
+        for (y = 0; y < NUMBER_OF_MODEMS; y++)
+        {
+          if (y == x)
+            continue;
+          if (devices[y].name[0] && devices[y].device[0])
+            if (strcmp(devices[y].device, devices[x].device) == 0)
+              wrlogfile(&result, "Devices %s and %s has the same port ( device = %s ).", devices[x].name, devices[y].name, devices[x].device);
+        }
       }
 
 #ifndef USE_ICONV
@@ -2484,7 +2562,10 @@ int startup_check(int result)
       int fd;
       int i;
 
-      sprintf(tmp_data, "%s/smsd_data.XXXXXX", "/tmp");
+      // 3.1.16beta: Use tmpdir:
+      //sprintf(tmp_data, "%s/smsd_data.XXXXXX", "/tmp");
+      sprintf(tmp_data, "%s/smsd_data.XXXXXX", tmpdir);
+
       if ((fd = mkstemp(tmp_data)) == -1)
         error = "Cannot create test data file.";
       else

@@ -1749,7 +1749,7 @@ int splitpdu(char *pdu, char *mode, int *alphabet, char *sendr, char *date, char
 int get_pdu_details(char *dest, size_t size_dest, char *pdu, int mnumber)
 {
   int result = 0;
-  int udlen;
+  //int udlen;
   int alphabet;
   char sender[100];
   char date[9];
@@ -1776,7 +1776,7 @@ int get_pdu_details(char *dest, size_t size_dest, char *pdu, int mnumber)
   char sort_ch;
   char *p;
 
-  udlen = splitpdu(pdu, DEVICE.mode, &alphabet, sender, date, time, ascii, smsc, &with_udh, udh_data, udh_type,
+  /*udlen = */splitpdu(pdu, DEVICE.mode, &alphabet, sender, date, time, ascii, smsc, &with_udh, udh_data, udh_type,
                    &is_statusreport, &is_unsupported_pdu, from_toa, &report, &replace, warning_headers, &flash, bin_udh);
 
   if (is_unsupported_pdu)

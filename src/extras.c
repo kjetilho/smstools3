@@ -270,9 +270,34 @@ int movefilewithdestlock_new(char* filename, char* directory, int keep_fname, in
     unlink(newname);
     if (!result)
     {
+      // 3.1.16beta: Log and retry in case of failures. This is from "VVV-3" special version.
       if (!(fpnew = fopen(newname, "w")))
-        result = 2;
-      else
+      {
+        writelogfile(LOG_CRIT, 1, "1. fopen write failure: %s - %i: %s", newname, errno, strerror(errno));
+        writelogfile(LOG_CRIT, 1, "Waiting 1 sec before retrying with %s", newname);
+        usleep_until(time_usec() + 1000000);
+
+        if (!(fpnew = fopen(newname, "w")))
+        {
+          writelogfile(LOG_CRIT, 1, "2. fopen write failure: %s - %i: %s", newname, errno, strerror(errno));
+          writelogfile(LOG_CRIT, 1, "Waiting 5 sec before retrying with %s", newname);
+          usleep_until(time_usec() + 5000000);
+
+          if (!(fpnew = fopen(newname, "w")))
+          {
+            writelogfile(LOG_CRIT, 1, "3. fopen write failure: %s - %i: %s", newname, errno, strerror(errno));
+            writelogfile(LOG_CRIT, 1, "Not retrying anymore with %s", newname);
+
+            result = 2;
+          }
+          else
+            writelogfile(LOG_CRIT, 1, "2. retry helped with %s", newname);
+        }
+        else
+          writelogfile(LOG_CRIT, 1, "1. retry helped with %s", newname);
+      }
+
+      if (!result)
       {
         if (!(fp = fopen(filename, "r")))
         {
@@ -585,6 +610,10 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
         continue;
       }
 
+      // 3.1.16beta: Skip empty files:
+      if (statbuf.st_size < 8)
+        continue;
+
       files_count++;
 
       // 3.1.12:
@@ -644,12 +673,20 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
         int report = 1;
         char reason[100];
 
-        if (!check_access(tmpname))
+        // 3.1.16beta: Retry once after small delay:
+        int access_ok = check_access(tmpname);
+        if (!access_ok)
+        {
+          usleep_until(time_usec() + 250000);
+          access_ok = check_access(tmpname);
+        }
+
+        if (!access_ok) //!check_access(tmpname))
         {
           snprintf(reason, sizeof(reason), "%s", "Access denied. Check the file and directory permissions.");
           if (getfile_err_store)
             if (strstr(getfile_err_store, storage_key))
-              report = 0; 
+              report = 0;
 
           if (report)
           {
@@ -864,7 +901,7 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
         // 3.1.12: sleep less:
         //sleep(1);
         usleep_until(time_usec() + 500000);
-            
+
         if (stat(fname, &statbuf))
           groesse2 = -1;
         else
@@ -916,7 +953,10 @@ int my_system(
 	char tmp2[PATH_MAX];
 
 	// Cannot contain "(" when passed as an argument
-	snprintf(tmp1, sizeof(tmp1), ">%s/smsd_%s_1.XXXXXX", "/tmp", info);
+
+	// 3.1.16beta: Use tmpdir:
+	//snprintf(tmp1, sizeof(tmp1), ">%s/smsd_%s_1.XXXXXX", "/tmp", info);
+	snprintf(tmp1, sizeof(tmp1), ">%s/smsd_%s_1.XXXXXX", tmpdir, info);
 	while ((p = strchr(tmp1, '(')))
 		*p = '.';
 	while ((p = strchr(tmp1, ')')))
@@ -924,7 +964,9 @@ int my_system(
 	while ((p = strchr(tmp1, ' ')))
 		*p = '-';
 
-	snprintf(tmp2, sizeof(tmp2), "2>%s/smsd_%s_2.XXXXXX", "/tmp", info);
+	// 3.1.16beta: Use tmpdir:
+	//snprintf(tmp2, sizeof(tmp2), "2>%s/smsd_%s_2.XXXXXX", "/tmp", info);
+	snprintf(tmp2, sizeof(tmp2), "2>%s/smsd_%s_2.XXXXXX", tmpdir, info);
 	while ((p = strchr(tmp2, '(')))
 		*p = '.';
 	while ((p = strchr(tmp2, ')')))
@@ -1436,7 +1478,8 @@ int usleep_until(unsigned long long target_time)
   struct timezone tz;
   unsigned long long now;
 
-  do
+  // 3.1.16beta: Sleep more and less often to reduce CPU load (100 --> 10000 max).
+  for (;;)
   {
     gettimeofday(&tv, &tz);
     now = (unsigned long long)tv.tv_sec *1000000 +tv.tv_usec;
@@ -1444,10 +1487,14 @@ int usleep_until(unsigned long long target_time)
     if (terminate == 1)
       return 1;
 
-    if (now < target_time)
-      usleep(100);
+    if (now >= target_time)
+      break;
+
+    if (now +10000 < target_time)
+      usleep(10000);
+    else
+      usleep(target_time -now);
   }
-  while (now < target_time);
 
   return 0;
 }
@@ -1572,7 +1619,7 @@ void getfield(char* line, int field, char* result, int size)
   {
     start=strchr(start+1,',');
     if (start==0)
-      return;      
+      return;
   }
   start++;
   while (start[0]=='\"' || start[0]==' ')
@@ -1591,5 +1638,85 @@ void getfield(char* line, int field, char* result, int size)
   result[length]=0;
 #ifdef DEBUGMSG
   printf("!! result=%s\n",result);
-#endif    
+#endif
+}
+
+// 3.1.16beta:
+int make_uptime_string(char *dest, size_t dest_size, time_t upt)
+{
+  int result = 0;
+  time_t day;
+  char tmp[16];
+
+  day = 60 * 60 * 24;
+  if (upt < day)
+  {
+    if (upt >= 60 * 60)
+    {
+      strftime(tmp, sizeof(tmp), "%H:%M", gmtime(&upt));
+      snprintf(dest, dest_size, "%s", (*tmp == '0')? tmp + 1 : tmp);
+    }
+    else
+      snprintf(dest, dest_size, "%i min", (int)upt / 60);
+  }
+  else
+  {
+    int days;
+
+    days = (int)upt / day;
+    snprintf(dest, dest_size, "%i day%s, ", days, (days > 1)? "s" : "");
+    upt -= days * day;
+    if (upt >= 60 * 60)
+    {
+      strftime(tmp, sizeof(tmp), "%H:%M", gmtime(&upt));
+      snprintf(dest + strlen(dest), dest_size - strlen(dest), "%s", (*tmp == '0')? tmp + 1 : tmp);
+    }
+    else
+      snprintf(dest + strlen(dest), dest_size - strlen(dest), "%i min", (int)upt / 60);
+  }
+
+  return result;
+}
+
+// 3.1.16beta:
+int is_ok_answer(char *answer)
+{
+  if (strstr(answer, "OK"))
+    return 1;
+  return 0;
+}
+
+int is_error_answer(char *answer)
+{
+  if (strstr(answer, "ERROR"))
+    return 1;
+  return 0;
+}
+
+int is_ok_0_answer(char *answer)
+{
+  if (is_ok_answer(answer) || strstr(answer, "0"))
+    return 1;
+  return 0;
+}
+
+int is_error_4_answer(char *answer)
+{
+  if (is_error_answer(answer) || strstr(answer, "4"))
+    return 1;
+  return 0;
+}
+
+int is_ok_error_answer(char *answer)
+{
+  if (is_ok_answer(answer) || is_error_answer(answer))
+    return 1;
+  return 0;
+}
+
+int is_ok_error_0_4_answer(char *answer)
+{
+  if (is_ok_0_answer(answer) || is_error_4_answer(answer))
+    return 1;
+  return 0;
 }

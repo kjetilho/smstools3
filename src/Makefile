@@ -43,7 +43,7 @@ smsd: smsd.c extras.o locking.o cfgfile.o logging.o alarm.o smsd_cfg.o charset.o
 
 ifneq (,$(findstring SOLARIS,$(CFLAGS)))
 ifeq (,$(findstring DISABLE_INET_SOCKET,$(CFLAGS)))
-override LFLAGS += -lsocket -lnsl
+	override LFLAGS += -lsocket -lnsl
 endif
 endif
 

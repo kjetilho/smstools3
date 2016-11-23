@@ -54,6 +54,7 @@ int break_workless_delay; // To break the delay when SIGCONT is received.
 int workless_delay;
 
 int break_suspend; // To break suspend when SIGUSR2 is received.
+int got_sigchld = 0; // 3.1.16beta: To reap stopped modem processes.
 
 const char *HDR_To =			"To:";		// Msg file input.
 char HDR_To2[SIZE_HEADER] = {};
@@ -95,7 +96,8 @@ const char *HDR_System_message =	"System_message:"; // Msg file input.
 char HDR_System_message2[SIZE_HEADER] = {};
 const char *HDR_Smsd_debug =		"Smsd_debug:";	// For debugging purposes
 char HDR_Smsd_debug2[SIZE_HEADER] = {};
-
+const char *HDR_Retries =		"Retries:";	// 3.1.16beta: Msg file input.
+char HDR_Retries2[SIZE_HEADER] = {};
 const char *HDR_UDHDATA =		"UDH-DATA:";	// Msg file input. Incoming message.
 const char *HDR_UDHDUMP =		"UDH-DUMP:";	// Msg file input (for backward compatibility).
 const char *HDR_UDH =			"UDH:";		// Msg file input. Incoming binary message: "yes" / "no".
@@ -126,6 +128,8 @@ const char *HDR_Failed =		"Failed:";	// Failed outgoing message, timestamp.
 char HDR_Failed2[SIZE_HEADER] = {};
 const char *HDR_Identity =		"IMSI:";	// Incoming / Sent(or failed), exists with code if IMSI request
 char HDR_Identity2[SIZE_HEADER] = {};			// supported.
+const char *HDR_IMEI =			"IMEI:";	// 3.1.16beta: Incoming / Sent(or failed), IMEI number.
+char HDR_IMEI2[SIZE_HEADER] = {};
 const char *HDR_MessageId =		"Message_id:";	// Sent (successfully) message. There is fixed "message id" and
 char HDR_MessageId2[SIZE_HEADER] = {};			// "status" titled inside the body of status report.
 const char *HDR_OriginalFilename =	"Original_filename:";	// Stored when moving file from outgoing directory and
@@ -434,6 +438,8 @@ int read_translation(void)
           strcpy(HDR_Priority2, value);
         else if (!strcasecmp(name, HDR_System_message))
           strcpy(HDR_System_message2, value);
+        else if (!strcasecmp(name, HDR_Retries))
+          strcpy(HDR_Retries2, value);
         else if (!strcasecmp(name, HDR_Sent))
           strcpy(HDR_Sent2, value);
         else if (!strcasecmp(name, HDR_Modem))
@@ -460,6 +466,8 @@ int read_translation(void)
           strcpy(HDR_Failed2, value);
         else if (!strcasecmp(name, HDR_Identity))
           strcpy(HDR_Identity2, value);
+        else if (!strcasecmp(name, HDR_IMEI))
+          strcpy(HDR_IMEI2, value);
         else if (!strcasecmp(name, HDR_MessageId))
           strcpy(HDR_MessageId2, value);
         else if (!strcasecmp(name, HDR_OriginalFilename))
@@ -500,7 +508,7 @@ char *get_header(const char *header, char *header2)
   {
     if (*header2 == '-')
       return header2 +1;
-    return header2;    
+    return header2;
   }
   return (char *)header;
 }
@@ -544,10 +552,11 @@ int prepare_remove_headers(char *remove_headers, size_t size)
 {
   char *p;
 
-  if (snprintf(remove_headers, size, "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\nPDU:",
+  if (snprintf(remove_headers, size, "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\nPDU:",
                HDR_FailReason,
                HDR_Failed,
                HDR_Identity,
+               HDR_IMEI,
                HDR_Modem,
                HDR_Number,
                HDR_Sent,
@@ -572,6 +581,14 @@ int prepare_remove_headers(char *remove_headers, size_t size)
   }
 
   if ((p = get_header(NULL, HDR_Identity2)))
+  {
+    if (strlen(remove_headers) + strlen(p) +1 < size)
+      sprintf(strchr(remove_headers, 0), "\n%s", p);
+    else
+      return 0;
+  }
+
+  if ((p = get_header(NULL, HDR_IMEI2)))
   {
     if (strlen(remove_headers) + strlen(p) +1 < size)
       sprintf(strchr(remove_headers, 0), "\n%s", p);
@@ -691,13 +708,13 @@ int apply_filename_preview(char *filename, char *arg_text, int setting_length)
 LSYeeuioCOoAa Aa E AONUS aonua e
 */
   char *allowed_chars = "-.";
-  char replace_from[] = { 
+  char replace_from[] = {
     0xA3, '$', 0xA5, 0xE8, 0xE9, 0xF9, 0xEC, 0xF2, 0xC7, 0xD8, 0xF8, 0xC5, 0xE5,
     0xC6, 0xE6,
     0xC9,
     0xC4, 0xD6, 0xD1, 0xDC, 0xA7,
     0xE4, 0xF6, 0xF1, 0xFC, 0xE0,
-    '¤',
+    0xA4, /* 3.1.16beta: ISO character caused warning: '¤', */
     0x00
   };
   char *replace_to   = "LSYeeuioCOoAaAaEAONUSaonuae";
@@ -727,7 +744,7 @@ LSYeeuioCOoAa Aa E AONUS aonua e
     {
       if ((p = strchr(replace_from, text[i])))
         text[i] = replace_to[p -replace_from];
-      else                
+      else
         text[i] = '_';
     }
   }
@@ -744,7 +761,7 @@ LSYeeuioCOoAa Aa E AONUS aonua e
   }
 
   return 1;
-} 
+}
 
 /* =======================================================================
    Runs checkhandler and returns return code:
@@ -752,7 +769,7 @@ LSYeeuioCOoAa Aa E AONUS aonua e
    1 = message is rejected.
    2 = message is accepted and checkhandler has moved it to correct spooler.
    ======================================================================= */
-   
+
 int run_checkhandler(char* filename)
 {
   char cmdline[PATH_MAX+PATH_MAX+32];
@@ -817,7 +834,9 @@ int change_headers(char *filename, char *remove_headers, char *add_buffer, char 
 
   // 3.1.12: Temporary file in checked directory causes troubles with more than one modems:
   //sprintf(tmp_filename,"%s.XXXXXX", filename);
-  sprintf(tmp_filename,"/tmp/smsd.XXXXXX");
+  // 3.1.16beta: Use tmpdir:
+  //sprintf(tmp_filename,"/tmp/smsd.XXXXXX");
+  sprintf(tmp_filename, "%s/smsd.XXXXXX", tmpdir);
 
   close(mkstemp(tmp_filename));
   unlink(tmp_filename);
@@ -942,7 +961,8 @@ void readSMSheader(char* filename, /* Filename */
                    int *replace_msg,	/* 1...7, 0=none */
                    char *macros,
                    int *system_msg,	/* 1 if sending as a system message. */
-                   int *to_type)        /* -1 = default, -2 = error, >= 0 = accepted value  */
+                   int *to_type,        /* -1 = default, -2 = error, >= 0 = accepted value  */
+                   int *retries)        /* 3.1.16beta: -1 = default, >= 0 = accepted value  */
 {
   FILE* File;
   char line[SIZE_UDH_DATA +256];
@@ -953,13 +973,13 @@ void readSMSheader(char* filename, /* Filename */
   {
     to[0] = 0;
     from[0] = 0;
-    *alphabet = 0; 
+    *alphabet = 0;
     *with_udh = -1;
     udh_data[0] = 0;
     queue[0] = 0;
     *flash = 0;
     smsc[0] = 0;
-    *report = -1; 
+    *report = -1;
     *split = -1;
     *validity = -1;
     *voicecall = 0;
@@ -968,6 +988,7 @@ void readSMSheader(char* filename, /* Filename */
       *macros = 0;
     *system_msg = 0;
     *to_type = -1;
+    *retries = -1;
 
     // This is global:
     smsd_debug[0] = 0;
@@ -975,8 +996,8 @@ void readSMSheader(char* filename, /* Filename */
 
 #ifdef DEBUGMSG
   printf("!! readSMSheader(filename=%s, recursion_level:%i, ...)\n",filename, recursion_level);
-#endif 
- 
+#endif
+
   if ((File = fopen(filename, "r")))
   {
     // read until end of file or until an empty line was found
@@ -997,7 +1018,7 @@ void readSMSheader(char* filename, /* Filename */
           else
             strcpy(to,line);
 
-          // 3.1beta3: 
+          // 3.1beta3:
           // Allow number grouping (like "358 12 345 6789") and *# characters in any position of a phone number.
           ptr = (*to == 's')? to +1: to;
           while (*ptr)
@@ -1027,7 +1048,7 @@ void readSMSheader(char* filename, /* Filename */
           *to_type = 1;
         else if (!strcasecmp(line, "national"))
           *to_type = 2;
-        else 
+        else
           *to_type = -2;
       }
       else
@@ -1125,7 +1146,7 @@ void readSMSheader(char* filename, /* Filename */
           *alphabet=3;
         else
           *alphabet=4;
-      } 
+      }
       else
       if (strncmp(line, HDR_UDHDATA, hlen = strlen(HDR_UDHDATA)) == 0)
       {
@@ -1137,7 +1158,7 @@ void readSMSheader(char* filename, /* Filename */
       {
         if (strlen(cutspaces(strcpyo(line, line +hlen))) < SIZE_UDH_DATA)
           strcpy(udh_data, line);
-      }      
+      }
       else
       if (strncmp(line, HDR_UDH, hlen = strlen(HDR_UDH)) == 0)
         *with_udh = yesno(cutspaces(strcpyo(line, line +hlen)));
@@ -1147,7 +1168,7 @@ void readSMSheader(char* filename, /* Filename */
         cutspaces(strcpyo(line, line +hlen));
         if (recursion_level < 1)
           readSMSheader(line, recursion_level +1, to, from, alphabet, with_udh, udh_data, queue, flash,
-  	              smsc, report, split, validity, voicecall, hex, replace_msg, macros, system_msg, to_type);
+  	              smsc, report, split, validity, voicecall, hex, replace_msg, macros, system_msg, to_type, retries);
       }
       else
       if (test_header(&hlen, line, HDR_Macro, HDR_Macro2))
@@ -1183,7 +1204,7 @@ void readSMSheader(char* filename, /* Filename */
           }
           // No space -error is not reported.
         }
-      }  
+      }
       else
       if (test_header(&hlen, line, HDR_System_message, HDR_System_message2))
       {
@@ -1201,6 +1222,9 @@ void readSMSheader(char* filename, /* Filename */
         if (strlen(cutspaces(strcpyo(line, line +hlen))) < SIZE_SMSD_DEBUG)
           strcpy(smsd_debug, line); // smsd_debug is global.
       }
+      else
+      if (test_header(&hlen, line, HDR_Retries, HDR_Retries2))
+        *retries = atoi(cutspaces(strcpyo(line, line +hlen)));
       else // if the header is unknown, then simply ignore
       {
         ;;
@@ -1230,7 +1254,7 @@ void readSMSheader(char* filename, /* Filename */
       p = strchr(p, 0) +1;
     }
   }
-#endif 
+#endif
   }
   else
   {
@@ -1268,7 +1292,7 @@ void readSMStext(char* filename, /* Filename */
 #ifdef DEBUGMSG
   printf("readSMStext(filename=%s, recursion_level=%i, do_convert=%i, ...)\n",filename, recursion_level, do_convert);
 #endif
-  
+
   if (!(fp = fopen(filename, "r")))
   {
     writelogfile0(LOG_ERR, 1, tb_sprintf("Cannot read sms file %s.",filename));
@@ -1295,7 +1319,7 @@ void readSMStext(char* filename, /* Filename */
 
     if (n > 0)
     {
-      // Convert character set or simply copy 
+      // Convert character set or simply copy
       if (do_convert == 1)
       {
         if (macros && *macros)
@@ -1530,6 +1554,46 @@ void readSMShex(char *filename, int recursion_level, char *text, int *textlen, c
       strcpyo(p -1, p +strlen(filename));
 }
 
+// 3.1.16beta: Function to reap stopped modem processes:
+void listen_modem_processes()
+{
+  if (got_sigchld)
+  {
+    int i;
+    int status;
+    char reason[128];
+
+    got_sigchld = 0;
+
+    for (i = 0; i < NUMBER_OF_MODEMS; i++)
+    {
+      if (device_pids[i])
+      {
+        if (waitpid(device_pids[i], &status, WNOHANG) == device_pids[i])
+        {
+          *reason = 0;
+
+          if (WIFEXITED(status))
+            snprintf(reason, sizeof(reason), " Exited, status %d.", WEXITSTATUS(status));
+          else if (WIFSIGNALED(status))
+            snprintf(reason, sizeof(reason), " Killed by signal %d.", WTERMSIG(status));
+
+          writelogfile0(LOG_CRIT, 0,
+                        tb_sprintf("Modem handler %i (%s) terminated while mainprocess is still running.%s", i, devices[i].name,
+                                   reason));
+          alarm_handler0(LOG_CRIT, tb);
+
+          // Note: After alarmhandler is called, mainprocess will receive sigchld,
+          // and mainspooler will go here. This does not cause problems, because
+          // only modem processes are listened.
+
+          device_pids[i] = 0;
+        }
+      }
+    }
+  }
+}
+
 /* =======================================================================
    Mainspooler (sorts SMS into queues)
    ======================================================================= */
@@ -1559,6 +1623,7 @@ void mainspooler()
   int replace_msg;
   int system_msg;
   int to_type;
+  int retries;
   time_t now;
   time_t last_regular_run;
   time_t last_stats;
@@ -1597,6 +1662,9 @@ void mainspooler()
 
   while (terminate == 0)
   {
+    // 3.1.16beta: Reap stopped modem processes:
+    listen_modem_processes();
+
     now = time(0);
     if (now >= last_stats +1)
     {
@@ -1660,15 +1728,15 @@ void mainspooler()
         // Does the checkhandler accept the message?
         i = run_checkhandler(filename);
         if (i == 1)
-        {   
+        {
           writelogfile(LOG_NOTICE, 0, tb_sprintf("SMS file %s rejected by checkhandler", filename));
-          alarm_handler(LOG_NOTICE, tb);    
+          alarm_handler(LOG_NOTICE, tb);
           fail_text = "Rejected by checkhandler";
         }
         else
         // Did checkhandler move the file by itself?
         if (i == 2)
-        {   
+        {
           writelogfile(LOG_NOTICE, 0, "SMS file %s spooled by checkhandler",filename);
           success = 1;
         }
@@ -1677,7 +1745,7 @@ void mainspooler()
           // If checkhandler failed, message is processed as usual.
 
           readSMSheader(filename, 0, to,from,&alphabet,&with_udh,udh_data,queuename,&flash,smsc,&report,&split,
-                        &validity, &voicecall, &hex, &replace_msg, NULL, &system_msg, &to_type);
+                        &validity, &voicecall, &hex, &replace_msg, NULL, &system_msg, &to_type, &retries);
           readSMStext(filename, 0, 0,text, &textlen, NULL);
 
           // Is the destination set?
@@ -1743,6 +1811,8 @@ void mainspooler()
           }
           else
           {
+            char title[1024];
+
             // Everything is ok, move the file into the queue
 
             // 3.1beta7, 3.0.9: Return value handled:
@@ -1758,8 +1828,13 @@ void mainspooler()
                 writelogfile0(LOG_CRIT, 0, tb_sprintf("Retry solved the spooler conflict: %s %s", filename, directory));
             }
 
-            stop_if_file_exists("Cannot move", filename, "to", directory);
-            writelogfile(LOG_NOTICE, 0, "Moved file %s to %s", filename, (keep_filename)? directory : newfilename);
+            // 3.1.16beta: Log "SMS To" and complete filename in case of error.
+            //stop_if_file_exists("Cannot move", filename, "to", directory);
+            //writelogfile(LOG_NOTICE, 0, "Moved file %s to %s", filename, (keep_filename)? directory : newfilename);
+            snprintf(title, sizeof(title), "SMS To: %s. Cannot move", to);
+            stop_if_file_exists(title, filename, "to", (keep_filename)? directory : newfilename);
+            writelogfile(LOG_NOTICE, 0, "SMS To: %s. Moved file %s to %s", to, filename, (keep_filename) ? directory : newfilename);
+
             success = 1;
             sendsignal2devices(SIGCONT);
           }
@@ -1774,8 +1849,9 @@ void mainspooler()
           int file_is_empty = 0;
           char timestamp[81];
 
+          // 3.1.16beta: Zero sized files are not spooled. Changed st_size == 0 to < 8.
           if (stat(filename, &statbuf) == 0)
-            if (statbuf.st_size == 0)
+            if (statbuf.st_size < 8)
               file_is_empty = 1;
 
           prepare_remove_headers(remove_headers, sizeof(remove_headers));
@@ -1798,7 +1874,7 @@ void mainspooler()
             movefilewithdestlock_new(filename,d_failed, keep_filename, store_original_filename, process_title, newfilename);
             stop_if_file_exists("Cannot move",filename,"to",d_failed);
           }
-        
+
           if (eventhandler[0])
           {
             snprintf(cmdline, sizeof(cmdline), "%s %s %s", eventhandler, "FAILED", (d_failed[0] == 0 || file_is_empty)? filename : newfilename);
@@ -1841,6 +1917,7 @@ void deletesms(int sim) /* deletes the selected sms from the sim card */
 {
   char command[100];
   char answer[500];
+  int i;
 
   if (sim == PDUFROMFILE)
     return;
@@ -1851,7 +1928,30 @@ void deletesms(int sim) /* deletes the selected sms from the sim card */
   {
     writelogfile(LOG_INFO, 0, "Deleting message %i", sim);
     sprintf(command,"AT+CMGD=%i\r", sim);
-    put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+
+    // 3.1.16beta: Retry if did not get the OK answer. Log the error and run alarmhandler.
+    i = 0;
+    do
+    {
+      i++;
+      put_command(command, answer, sizeof(answer), "cmgd", EXPECT_OK_ERROR);
+      if (!strstr(answer, "OK"))
+        if (i < 2)
+          if (t_sleep(errorsleeptime))
+            break;
+    }
+    while (i < 2 && !strstr(answer, "OK"));
+
+    if (!strstr(answer, "OK"))
+    {
+      if (!answer[0])
+        tb_sprintf("Modem did not answer when trying to delete message %i", sim);
+      else
+        tb_sprintf("Modem answered %s when trying to delete message %i", answer, sim);
+
+      writelogfile0(LOG_ERR, 1, tb);
+      alarm_handler0(LOG_ERR, tb);
+    }
   }
 }
 
@@ -1879,7 +1979,7 @@ void deletesms_list(char *memory_list)
       {
         writelogfile(LOG_INFO, 0, "Deleting message %i", sim);
         sprintf(command,"AT+CMGD=%i\r", sim);
-        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+        put_command(command, answer, sizeof(answer), "cmgd", EXPECT_OK_ERROR);
       }
     }
   }
@@ -1948,9 +2048,25 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
   {
     *used_memory = 0;
     *memory_list = 0;
-    put_command("AT+CMGD=?\r", answer, size_answer, 1, "(\\+CMGD:.*OK)|(ERROR)");
+
     // +CMGD: (1,22,23,28),(0-4) \r OK
     // +CMGD: (),(0-4) \r OK
+
+    // 3.1.16beta: retry if did not get the answer:
+    i = 0;
+    do
+    {
+      i++;
+      put_command("AT+CMGD=?\r", answer, size_answer, "cmgd", "(\\+CMGD:.*OK)|(ERROR)");
+      if (!strstr(answer, "OK"))
+        if (i < 2)
+          if (t_sleep(errorsleeptime))
+            return 1;
+    }
+    while (i < 2 && !strstr(answer,"OK"));
+
+    if (terminate)
+      return 1;
 
     if (strstr(answer, "()"))
       return 1;
@@ -1961,6 +2077,20 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
       if ((p = strstr(answer, "),")))
       {
         *p = 0;
+
+        // 3.1.16beta: Handle incorrect answer from older Telit modem:
+        // GSM1: <- +CMGD: (1,2,3,4,5,),(0-4) OK
+        // GSM1: Used memory is 6, list: 1,2,3,4,5,
+        // With high traffic extra comma may be returned (even when the SIM is full).
+        if (*answer && answer[strlen(answer) - 1] == ',')
+        {
+          answer[strlen(answer) - 1] = 0;
+
+          // Log this issue because modem did not work properly and may have/cause other problems too.
+          writelogfile0(LOG_NOTICE, 1, tb_sprintf("Removed extra comma from the answer for +CMGD=?"));
+          alarm_handler0(LOG_NOTICE, tb);
+        }
+
         if (strlen(answer) < memory_list_size)
         {
           *used_memory = 1;
@@ -1999,7 +2129,7 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
     log_single_lines = 0;
 
     // 3.1.12: With large number of messages and slow modem, much longer timeout than "1" is required.
-    put_command(tmp, answer, size_answer, 10, EXPECT_OK_ERROR);
+    put_command(tmp, answer, size_answer, "cmgl", EXPECT_OK_ERROR);
 
     log_single_lines = save_log_single_lines;
 
@@ -2037,7 +2167,7 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
 
         if (errorstr)
           break;
-       
+
         if ((mlength = atoi(p2 +1)) <= 0)
         {
           errorstr = "Invalid length information";
@@ -2047,7 +2177,10 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
         p = term +1;
         if (*p == '\n')
           p++;
-        if ((pdu1 = octet2bin_check(p)) <= 0)
+
+        // 3.1.16beta: SMSC number is not mandatory, allow zero length but still check the octet:
+        //if ((pdu1 = octet2bin_check(p)) <= 0)
+        if ((pdu1 = octet2bin_check(p)) < 0)
         {
           errorstr = "Invalid first byte of PDU";
           break;
@@ -2281,7 +2414,7 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
   }
   else
   {
-    put_command("AT+CPMS?\r", answer, size_answer, 1, "(\\+CPMS:.*OK)|(ERROR)");
+    put_command("AT+CPMS?\r", answer, size_answer, "cpms", "(\\+CPMS:.*OK)|(ERROR)");
     if ((start=strstr(answer,"+CPMS:")))
     {
       // 3.1.5: Check if reading of messages is not supported:
@@ -2298,7 +2431,7 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
             *used_memory=atoi(tmp);
           getfield(start,3,tmp, sizeof(tmp));
           if (tmp[0])
-            *max_memory=atoi(tmp);    
+            *max_memory=atoi(tmp);
           writelogfile(LOG_INFO, 0, "Used memory is %i of %i",*used_memory,*max_memory);
           return 1;
         }
@@ -2312,7 +2445,7 @@ int check_memory(int *used_memory, int *max_memory, char *memory_list, size_t me
     writelogfile(LOG_INFO, 1, "Command failed.");
     return 0;
   }
-  
+
   writelogfile(LOG_INFO, 0, "Command failed, using defaults.");
   return 1;
 }
@@ -2379,6 +2512,9 @@ int savephonecall(char *entry_number, int entry_type, char *entry_text)
 		if (!strstr(DEVICE.identity, "ERROR") && *HDR_Identity2 != '-')
 			fprintf(fp, "%s %s\n", get_header_incoming(HDR_Identity, HDR_Identity2), DEVICE.identity);
 
+		if (!strstr(DEVICE.imei, "ERROR") && *HDR_IMEI2 != '-')
+			fprintf(fp, "%s %s\n", get_header_incoming(HDR_IMEI, HDR_IMEI2), DEVICE.imei);
+
 		if (*HDR_CallType2 != '-')
 			fprintf(fp, "%s %s\n",
 				get_header_incoming(HDR_CallType, HDR_CallType2),
@@ -2392,7 +2528,7 @@ int savephonecall(char *entry_number, int entry_type, char *entry_text)
 
 		fclose(fp);
 
-		apply_filename_preview(filename, message_body, filename_preview);                          
+		apply_filename_preview(filename, message_body, filename_preview);
 		writelogfile(LOG_INFO, 0, "Wrote an incoming message file: %s", filename);
 
 		if (eventhandler[0] || DEVICE.eventhandler[0])
@@ -2430,7 +2566,7 @@ int readphonecalls()
     writelogfile(LOG_INFO, 0, "Reading phonecall entries");
 
     sprintf(command,"AT+CPBS=\"%s\"\r", "MC");
-    put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+    put_command(command, answer, sizeof(answer), "default", EXPECT_OK_ERROR);
     if (strstr(answer, "ERROR"))
     {
       if (++errors >= PB_MAX_ERRORS)
@@ -2448,7 +2584,7 @@ int readphonecalls()
 
         writelogfile(LOG_INFO, 0, "Checking phonecall limits (once)");
         sprintf(command,"AT+CPBR=?\r");
-        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+        put_command(command, answer, sizeof(answer), "cpbr", EXPECT_OK_ERROR);
         if (strstr(answer, "ERROR"))
         {
           if (++errors >= PB_MAX_ERRORS)
@@ -2484,7 +2620,7 @@ int readphonecalls()
           return 0;
 
         sprintf(command,"AT+CPBR=1,%i\r", index_max);
-        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+        put_command(command, answer, sizeof(answer), "cpbr", EXPECT_OK_ERROR);
         if (strstr(answer, "ERROR"))
         {
           if (++errors >= PB_MAX_ERRORS)
@@ -2613,7 +2749,7 @@ int readphonecalls()
                   p = "AT^SPBD=\"MC\"";
 
                 sprintf(command, "%s\r", p);
-                put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+                put_command(command, answer, sizeof(answer), "default", EXPECT_OK_ERROR);
                 count = 0;
 
                 if (strstr(answer, "ERROR"))
@@ -2630,7 +2766,7 @@ int readphonecalls()
             while (count && result != -1)
             {
               sprintf(command, "AT+CPBW=%i\r", count);
-              put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+              put_command(command, answer, sizeof(answer), "cpbw", EXPECT_OK_ERROR);
               count--;
 
               if (strstr(answer, "ERROR"))
@@ -2658,13 +2794,13 @@ int readphonecalls()
    Read a memory space from SIM card
    ======================================================================= */
 
-int readsim(int sim, char* line1, char* line2)  
+int readsim(int sim, char* line1, char* line2)
 /* reads a SMS from the given SIM-memory */
 /* returns number of SIM memory if successful, otherwise -1 */
 /* 3.1.5: In case of timeout return value is -2. */
 /* line1 contains the first line of the modem answer */
 /* line2 contains the pdu string */
-{                                
+{
   char command[500];
   char answer[1024];
   char* begin1;
@@ -2770,7 +2906,7 @@ int readsim(int sim, char* line1, char* line2)
   writelogfile(LOG_INFO, 0, "Trying to get stored message %i",sim);
   sprintf(command,"AT+CMGR=%i\r",sim);
   // 3.1beta3: Some modems answer OK in case of empty memory space (added "|(OK)")
-  if (put_command(command, answer, sizeof(answer), 1, "(\\+CMGR:.*OK)|(ERROR)|(OK)") == -2)
+  if (put_command(command, answer, sizeof(answer), "cmgr", "(\\+CMGR:.*OK)|(ERROR)|(OK)") == -2)
     return -2;
 
   // 3.1.7:
@@ -2781,10 +2917,10 @@ int readsim(int sim, char* line1, char* line2)
     strcpyo(begin1, begin1 + 1);
   // ------
 
-  if (strstr(answer,",,0\r")) // No SMS,  because Modem answered with +CMGR: 0,,0 
+  if (strstr(answer,",,0\r")) // No SMS,  because Modem answered with +CMGR: 0,,0
     return -1;
-  if (strstr(answer,"ERROR")) // No SMS,  because Modem answered with ERROR 
-    return -1;  
+  if (strstr(answer,"ERROR")) // No SMS,  because Modem answered with ERROR
+    return -1;
   begin1=strstr(answer,"+CMGR:");
   if (begin1==0)
     return -1;
@@ -2802,7 +2938,7 @@ int readsim(int sim, char* line1, char* line2)
   cutspaces(line1);
   cut_ctrl(line1);
   cutspaces(line2);
-  cut_ctrl(line2); 
+  cut_ctrl(line2);
   if (strlen(line2)==0)
     return -1;
 #ifdef DEBUGMSG
@@ -2812,9 +2948,9 @@ int readsim(int sim, char* line1, char* line2)
 }
 
 /* =======================================================================
-   Write a received message into a file 
+   Write a received message into a file
    ======================================================================= */
-   
+
 // returns 1 if this was a status report
 int received2file(char *line1, char *line2, char *filename, int *stored_concatenated, int incomplete)
 {
@@ -2869,7 +3005,15 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
 #endif
 
   //getfield(line1,1,status, sizeof(status)); not used
-  getfield(line1,2,name, sizeof(name));
+
+  // 3.1.16beta: Try to read name without getfield, because there can be comma inside the text:
+  //getfield(line1,2,name, sizeof(name));
+  char *p1, *p2;
+
+  if ((p1 = strchr(line1, ':')) && (p1 = strchr(p1, ',')) && *(++p1) == '"' && (p2 = strchr(++p1, '"')))
+    snprintf(name, sizeof(name), "%.*s", (int)(p2 -p1), p1);
+  else
+    getfield(line1,2,name, sizeof(name));
 
   // Check if field 2 was a number instead of a name
   if (atoi(name)>0)
@@ -2908,7 +3052,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
         }
         free(tmp);
       }
-    }  
+    }
 
 #ifndef USE_ICONV
     // 3.1beta7, 3.0.9: decoding is always done:
@@ -2922,21 +3066,21 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
   
 #ifdef DEBUGMSG
   printf("!! userdatalength=%i\n",userdatalength);
-  printf("!! name=%s\n",name);  
-  printf("!! sendr=%s\n",sendr);  
+  printf("!! name=%s\n",name);
+  printf("!! sendr=%s\n",sendr);
   printf("!! date=%s\n",date);
-  printf("!! Time=%s\n",Time); 
+  printf("!! Time=%s\n",Time);
   if ((alphabet==-1 && DEVICE.cs_convert==1)||(alphabet==0)||(alphabet==4))
-  printf("!! ascii=%s\n",ascii); 
-  printf("!! smsc=%s\n",smsc); 
+  printf("!! ascii=%s\n",ascii);
+  printf("!! smsc=%s\n",smsc);
   printf("!! with_udh=%i\n",with_udh);
-  printf("!! udh_data=%s\n",udh_data);   
-  printf("!! udh_type=%s\n",udh_type);   
-  printf("!! is_statusreport=%i\n",is_statusreport);   
-  printf("!! is_unsupported_pdu=%i\n", is_unsupported_pdu);   
-  printf("!! from_toa=%s\n", from_toa);   
-  printf("!! report=%i\n", report);   
-  printf("!! replace=%i\n", replace);   
+  printf("!! udh_data=%s\n",udh_data);
+  printf("!! udh_type=%s\n",udh_type);
+  printf("!! is_statusreport=%i\n",is_statusreport);
+  printf("!! is_unsupported_pdu=%i\n", is_unsupported_pdu);
+  printf("!! from_toa=%s\n", from_toa);
+  printf("!! report=%i\n", report);
+  printf("!! replace=%i\n", replace);
 #endif
 
   if (is_statusreport)
@@ -2957,7 +3101,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
       //sprintf(status, ", %s %i", SR_Status, atoi(p +strlen(SR_Status) +1));
       snprintf(status, sizeof(status), ", %s %s", SR_Status, p +strlen(SR_Status) +1);
 
-    writelogfile(LOG_NOTICE, 0, "SMS received (report%s%s), From: %s", id, status, sendr); 
+    writelogfile(LOG_NOTICE, 0, "SMS received (report%s%s), From: %s", id, status, sendr);
   }
 
   *stored_concatenated = 0;
@@ -2977,7 +3121,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
         else
           sprintf(storage_udh, "06 08 04 %02X ", (m_id & 0xFF00) >> 8);
         sprintf(strchr(storage_udh, 0), "%02X ", m_id & 0xFF);
-        sprintf(strchr(storage_udh, 0), "%02X %02X ", p_count, p_number);        
+        sprintf(strchr(storage_udh, 0), "%02X %02X ", p_count, p_number);
         offset = (a_type == 1)? 12 : 15;
       }
     }
@@ -3117,7 +3261,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
           }
 
           sprintf(tmp_filename,"%s/%s.XXXXXX",d_incoming,DEVICE.name);
-          ftmp = mkstemp(tmp_filename);       
+          ftmp = mkstemp(tmp_filename);
           fseek(fd, 0, SEEK_SET);
           while (fgets(st, sizeof(st), fd))
           {
@@ -3157,16 +3301,16 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
           }
         } // if, all parts were found.
       }
-    } // if (offset), received message had concatenation header with more than 1 parts. 
+    } // if (offset), received message had concatenation header with more than 1 parts.
   } // do_internal_combine ends.
 
   if (p_count == 1)
   {
     if (!is_statusreport)
-      writelogfile(LOG_NOTICE, 0, "SMS received, From: %s", sendr); 
+      writelogfile(LOG_NOTICE, 0, "SMS received, From: %s", sendr);
   }
   else
-    writelogfile(LOG_NOTICE, 0, "SMS received (part %i/%i), From: %s", p_number, p_count, sendr); 
+    writelogfile(LOG_NOTICE, 0, "SMS received (part %i/%i), From: %s", p_number, p_count, sendr);
 
   if (result)
   {
@@ -3190,7 +3334,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
       //Replace the temp file by a new file with same name. This resolves wrong file permissions.
       unlink(filename);
       if ((fd = fopen(filename, "w")))
-      { 
+      {
         char *p;
 
         // 3.1beta7, 3.0.9: This header can be used to detect that a message has no usual content:
@@ -3228,6 +3372,8 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
 
         if (!strstr(DEVICE.identity, "ERROR") && *HDR_Identity2 != '-')
           fprintf(fd, "%s %s\n", get_header_incoming(HDR_Identity, HDR_Identity2), DEVICE.identity);
+        if (!strstr(DEVICE.imei, "ERROR") && *HDR_IMEI2 != '-')
+          fprintf(fd, "%s %s\n", get_header_incoming(HDR_IMEI, HDR_IMEI2), DEVICE.imei);
         if (report >= 0 && *HDR_Report2 != '-')
           fprintf(fd, "%s %s\n", get_header_incoming(HDR_Report, HDR_Report2), (report)? yes_word : no_word);
         if (replace >= 0 && *HDR_Replace2 != '-')
@@ -3311,7 +3457,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
               fprintf(fd, "Pos: ");
               while (i++ < pos -1)
                 if (i % 10)
-                {   
+                {
                   if (i % 5)
                     fprintf(fd, ".");
                   else
@@ -3403,7 +3549,7 @@ int received2file(char *line1, char *line2, char *filename, int *stored_concaten
    Receive one SMS
    ======================================================================= */
 
-int receivesms(int* quick, int only1st)  
+int receivesms(int* quick, int only1st)
 // receive one SMS or as many as the modem holds in memory
 // if quick=1 then no initstring
 // if only1st=1 then checks only 1st memory space
@@ -3412,7 +3558,7 @@ int receivesms(int* quick, int only1st)
 // Returns -1 on error
 {
   int max_memory,used_memory;
-  int start_time=time(0);  
+  int start_time=time(0);
   int found;
   int foundsomething=0;
   int statusreport;
@@ -3454,7 +3600,7 @@ int receivesms(int* quick, int only1st)
       return -1;
     }
   }
-  
+
   // Dual-memory handler:
   for (memories = 0; memories <= 2; memories++)
   {
@@ -3494,11 +3640,11 @@ int receivesms(int* quick, int only1st)
           for (p2 = strchr(command, 0); p2 > p; p2--)
             *(p2 +2) = *p2;
           strncpy(p, "\",\"", 3);
-          p += 3; 
+          p += 3;
         }
 
         writelogfile(LOG_INFO, 0, "Changing memory");
-        put_command(command, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+        put_command(command, answer, sizeof(answer), "cpms", EXPECT_OK_ERROR);
 
         // 3.1.9:
         if (strstr(answer, "ERROR"))
@@ -3582,7 +3728,7 @@ int receivesms(int* quick, int only1st)
                   if (i < sizeof(line2))
                   {
                     strncpy(line2, p, i);
-                    line2[i] = 0;                
+                    line2[i] = 0;
                     found = sim;
                   }
                 }
@@ -3608,7 +3754,7 @@ int receivesms(int* quick, int only1st)
         {
           foundsomething=1;
           *quick=1;
-        
+
           //Create a temp file for received message
           //3.1beta3: Moved to the received2file function, filename is now a return value:
           //sprintf(filename,"%s/%s.XXXXXX",d_incoming,DEVICE.name);
@@ -3637,14 +3783,14 @@ int receivesms(int* quick, int only1st)
 
             sprintf(tmp, "%s%u", (*delete_list)? "," : "", found);
             if (strlen(delete_list) +strlen(tmp) < sizeof(delete_list))
-              strcat(delete_list, tmp);            
+              strcat(delete_list, tmp);
           }
           else
           if (!value_in(DEVICE.check_memory_method, 1, CM_CMGL_SIMCOM))
             deletesms(found);
 
           used_memory--;
-          if (used_memory<1) 
+          if (used_memory<1)
             break; // Stop reading memory if we got everything
         }
         if (only1st)
@@ -3682,7 +3828,7 @@ int receivesms(int* quick, int only1st)
 
 int send_part(char* from, char* to, char* text, int textlen, int alphabet, int with_udh, char* udh_data,
               int quick, int flash, char* messageids, char* smsc, int report, int validity, int part, int parts, int replace_msg,
-              int system_msg, int to_type, char *error_text)
+              int system_msg, int to_type, int retries, char *error_text)
 // alphabet can be -1=GSM 0=ISO 1=binary 2=UCS2
 // with_udh can be 0=off or 1=on or -1=auto (auto = 1 for binary messages and text message with udh_data)
 // udh_data is the User Data Header, only used when alphabet= -1 or 0.
@@ -3697,7 +3843,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
 // error_text: latest modem response. Might have a value even if return value is ok (when retry helped).
 {
   char pdu[1024];
-  int retries;
+  int retry_count; // 3.1.16beta: changed name from "retries".
   char command[128];
   char command2[1024];
   char answer[1024];
@@ -3709,8 +3855,8 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
   char tmpid[10] = {0};
 
 #ifdef DEBUGMSG
-  printf("!! send_part(from=%s, to=%s, text=..., textlen=%i, alphabet=%i, with_udh=%i, udh_data=%s, quick=%i, flash=%i, messageids=..., smsc=%s, report=%i, validity=%i, part=%i, parts=%i, replace_msg=%i, system_msg=%i, to_type=%i)\n",
-         from, to, textlen, alphabet, with_udh, udh_data, quick, flash, smsc, report, validity, part, parts, replace_msg, system_msg, to_type);
+  printf("!! send_part(from=%s, to=%s, text=..., textlen=%i, alphabet=%i, with_udh=%i, udh_data=%s, quick=%i, flash=%i, messageids=..., smsc=%s, report=%i, validity=%i, part=%i, parts=%i, replace_msg=%i, system_msg=%i, to_type=%i, retries=%i)\n",
+         from, to, textlen, alphabet, with_udh, udh_data, quick, flash, smsc, report, validity, part, parts, replace_msg, system_msg, to_type, retries);
 #endif
   if (error_text)
     *error_text = 0;
@@ -3769,7 +3915,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
     sprintf(command,"AT%s+CMGS=%i\r", (DEVICE.verify_pdu)? "E1" : "", (int)strlen(pdu)/2-1); // 3.1.4: verify_pdu
 
   sprintf(command2,"%s\x1A",pdu);
-  
+
   if (store_sent_pdu)
   {
     char *title = "PDU: ";
@@ -3793,8 +3939,18 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
       (enable_smsd_debug && parts > 2 && part == 1 && strstr(smsd_debug, "drop2"))
      )
   {
+    char *p;
+
     writelogfile(LOG_NOTICE, 0, "Test run, NO actual sending:%s from %s to %s", partstr, from, to);
-    writelogfile(LOG_DEBUG, 0, "PDU to %s: %s %s", to, command, pdu);
+
+    // 3.1.16beta: remove \r
+    if ((p = strdup(command)))
+    {
+      if (*p && p[strlen(p) - 1] == '\r')
+        p[strlen(p) - 1] = 0;
+      writelogfile(LOG_DEBUG, 0, "PDU to %s: %s %s", to, p, pdu);
+      free(p);
+    }
 
     // 3.1.12: Simulate sending time
     //sleep(1);
@@ -3815,16 +3971,16 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
   }
   else
   {
-    retries=0;
+    retry_count = 0; //retries=0;
     while (1)
     {
       // Send modem command
       // 3.1.5: initial timeout changed 1 --> 2 and for PDU 6 --> 12.
-      put_command(command, answer, sizeof(answer), 2, "(>)|(ERROR)");
+      put_command(command, answer, sizeof(answer), "cmgs", "(>)|(ERROR)");
       // Send message if command was successful
       if (!strstr(answer,"ERROR"))
       {
-        put_command(command2, answer ,sizeof(answer), 12, EXPECT_OK_ERROR);
+        put_command(command2, answer ,sizeof(answer), "pdu", EXPECT_OK_ERROR);
 
         // 3.1.14:
         if (DEVICE.verify_pdu)
@@ -3878,7 +4034,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
       {
         char answer2[1024];
 
-        put_command("ATE0\r", answer2 ,sizeof(answer2), 1, EXPECT_OK_ERROR);
+        put_command("ATE0\r", answer2 ,sizeof(answer2), "default", EXPECT_OK_ERROR);
       }
 
       // Check answer
@@ -3890,7 +4046,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
         {
           posi1+=6;
           posi2=strchr(posi1,'\r');
-          if (! posi2) 
+          if (! posi2)
             posi2=strchr(posi1,'\n');
           if (posi2)
             posi2[0]=0;
@@ -3934,8 +4090,8 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
         //writelogfile(LOG_NOTICE, 0, "SMS sent%s, Message_id: %s%s, To: %s, sending time %i sec.", partstr, tmpid, replacestr, to, time(0) -start_time);
         // 3.1.14: show retries
         *answer = 0;
-        if (retries > 0)
-          snprintf(answer, sizeof(answer), " Retries: %i.", retries);
+        if (retry_count > 0)
+          snprintf(answer, sizeof(answer), " Retries: %i.", retry_count);
         writelogfile(LOG_NOTICE, 0, "SMS sent%s, Message_id: %s%s, To: %s, sending time %i sec.%s", partstr, tmpid, replacestr, to, time(0) -start_time, answer);
 
         // 3.1.1:
@@ -3947,11 +4103,12 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
         flush_smart_logging();
 
         return 0;
-      }  
-      else 
+      }
+      else
       {
         // 3.1.14: show retries and trying time when stopping:
         int result = 0;
+        int retry;
 
         // Set the error text:
         if (error_text)
@@ -3970,14 +4127,27 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
 
         alarm_handler0(LOG_ERR, tb);
 
-        if (++retries <= 2)
+        // 3.1.16beta:
+        //if (++retries <= 2)
+        retry_count++;
+        if (retries >= 0)
+          retry = retry_count <= retries;
+        else
+          retry = retry_count <= DEVICE.send_retries;
+        if (retry)
         {
           writelogfile(LOG_NOTICE, 1, "Waiting %i sec. before retrying", errorsleeptime);
 
           if (t_sleep(errorsleeptime))
             result = 3; // Cancel if terminating
           else if (initialize_modem_sending("")) // Initialize modem after error
-            result = 1; // Cancel if initializing failed
+          {
+            // 3.1.16beta: new message and alarm:
+            writelogfile0(LOG_ERR, 1, tb_sprintf("Sending canceled because modem initialization failed."));
+            alarm_handler0(LOG_ERR, tb);
+
+            result = 1;
+          }
         }
         else
           result = 2; // Cancel if too many retries
@@ -3986,13 +4156,13 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
         {
           STATISTICS->usage_s += time(0) - start_time;
           STATISTICS->failed_counter++;
-          writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed, trying time %i sec. Retries: %i.", partstr, to, time(0) - start_time, retries - 1));
+          writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed, trying time %i sec. Retries: %i.", partstr, to, time(0) - start_time, retry_count - 1));
           alarm_handler0(LOG_WARNING, tb);
           flush_smart_logging();
           return result;
         }
       }
-    }  
+    }
   }
 }
 
@@ -4000,7 +4170,7 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
    Send a whole message, this can have many parts
    ======================================================================= */
 
-int send1sms(int* quick, int* errorcounter)    
+int send1sms(int* quick, int* errorcounter)
 // Search the queues for SMS to send and send one of them.
 // Returns 0 if queues are empty
 // Returns -1 if sending failed (v 3.0.1 because of a modem)
@@ -4042,6 +4212,7 @@ int send1sms(int* quick, int* errorcounter)
   int hex;
   int system_msg;
   int to_type;
+  int retries;
   int terminate_written=0;
   int replace_msg = 0;
   char macros[SIZE_MACROS];
@@ -4057,7 +4228,7 @@ int send1sms(int* quick, int* errorcounter)
   printf("!! send1sms(quick=%i, errorcounter=%i)\n", *quick, *errorcounter);
 #endif
 
-  // Search for one single sms file  
+  // Search for one single sms file
   for (q = 0; q < NUMBER_OF_MODEMS; q++)
   {
     if (q == 1)
@@ -4071,10 +4242,10 @@ int send1sms(int* quick, int* errorcounter)
       break;
     }
   }
- 
+
   // If there is no file waiting to send, then do nothing
   if (found_a_file==0)
-  { 
+  {
 #ifdef DEBUGMSG
   printf("!! No file\n");
   printf("!! quick=%i errorcounter=%i\n",*quick,*errorcounter);
@@ -4086,7 +4257,7 @@ int send1sms(int* quick, int* errorcounter)
   }
 
   readSMSheader(filename, 0, to,from,&alphabet,&with_udh,udh_data,provider,&flash,smsc,&report,&split,
-                &validity, &voicecall, &hex, &replace_msg, macros, &system_msg, &to_type);
+                &validity, &voicecall, &hex, &replace_msg, macros, &system_msg, &to_type, &retries);
 
   // SMSC setting is allowed only if there is smsc set in the config file:
   if (DEVICE.smsc[0] == 0 && !DEVICE.smsc_pdu)
@@ -4148,7 +4319,7 @@ int send1sms(int* quick, int* errorcounter)
       with_udh=1;
 
     // if Split is unset, use the default value from config file
-    if (split==-1) 
+    if (split==-1)
       split=autosplit;
 
     // disable splitting if udh flag or udh_data is 1
@@ -4160,12 +4331,12 @@ int send1sms(int* quick, int* errorcounter)
     {
       split=0;
       // Keke: very old and possible wrong message, if there is no need to do splitting? Autosplit=0 prevents this message.
-      writelogfile(LOG_INFO, 0, "Cannot split this message because it has an UDH.");      
+      writelogfile(LOG_INFO, 0, "Cannot split this message because it has an UDH.");
     }
 #ifdef DEBUGMSG
   printf("!! to=%s, from=%s, alphabet=%i, with_udh=%i, udh_data=%s, provider=%s, flash=%i, smsc=%s, report=%i, split=%i\n",to,from,alphabet,with_udh,udh_data,provider,flash,smsc,report,split);
 #endif
-    // If this is a text message, then read also the text    
+    // If this is a text message, then read also the text
     if (alphabet<1 || alphabet >= 2)
     {
 #ifdef DEBUGMSG
@@ -4214,7 +4385,7 @@ int send1sms(int* quick, int* errorcounter)
           // 3.1beta7: Unicode part numbering now supported.
           //if (alphabet == 2) // With unicode messages
           //  if (split == 2)  // part numbering with text is not yet supported,
-          //    split = 3;     // using udh numbering instead. 
+          //    split = 3;     // using udh numbering instead.
 
           // if it fits into 1 SM, then we need 1 part
           if (textlen<=maxpartlen)
@@ -4238,7 +4409,7 @@ int send1sms(int* quick, int* errorcounter)
               if (alphabet == 2)
                 reserved *= 2;
               eachpartlen = maxpartlen -reserved;
-              parts = (textlen +eachpartlen -1) /eachpartlen;  
+              parts = (textlen +eachpartlen -1) /eachpartlen;
               // 3.1beta7: there can be more than 99 parts:
               if (parts > 99)
               {
@@ -4246,7 +4417,7 @@ int send1sms(int* quick, int* errorcounter)
                 if (alphabet == 2)
                   reserved *= 2;
                 eachpartlen = maxpartlen -reserved;
-                parts = (textlen +eachpartlen -1) /eachpartlen;  
+                parts = (textlen +eachpartlen -1) /eachpartlen;
 
                 // 3.1.1:
                 if (parts > 255)
@@ -4285,7 +4456,7 @@ int send1sms(int* quick, int* errorcounter)
           // split is 0, too long message is just cutted.
           eachpartlen=maxpartlen;
           reserved=0;
-          parts=1; 
+          parts=1;
         }
 
         if (parts>1)
@@ -4297,7 +4468,7 @@ int send1sms(int* quick, int* errorcounter)
     {
 #ifdef DEBUGMSG
   printf("!! This is a binary message.\n");
-#endif      
+#endif
       maxpartlen=maxsms_binary;
       if (hex == 1)
         readSMShex(filename, 0, text, &textlen, macros, errortext);
@@ -4375,7 +4546,7 @@ int send1sms(int* quick, int* errorcounter)
       }
     }
   } // success was ok after initial checks.
-    
+
   // parts can now be 0 if there is some problems,
   // fail_text and success is also set.
 
@@ -4384,7 +4555,7 @@ int send1sms(int* quick, int* errorcounter)
     writelogfile(LOG_INFO, 0, "I have to send %i short message for %s",parts,filename); 
 #ifdef DEBUGMSG
   printf("!! textlen=%i\n",textlen);
-#endif 
+#endif
   // If sending concatenated message, replace_msg should not be used (otherwise previously
   // received part is replaced with a next one...
   if (parts > 1)
@@ -4410,7 +4581,7 @@ int send1sms(int* quick, int* errorcounter)
         tocopy = eachpartlen;
 #ifdef DEBUGMSG
   printf("!! tocopy=%i, part=%i, eachpartlen=%i, reserved=%i\n",tocopy,part,eachpartlen,reserved);
-#endif 
+#endif
       memcpy(part_text +reserved, text +(eachpartlen *part), tocopy);
       part_text_length = tocopy +reserved;
     }
@@ -4422,11 +4593,11 @@ int send1sms(int* quick, int* errorcounter)
         tocopy = eachpartlen;
 #ifdef DEBUGMSG
   printf("!! tocopy=%i, part=%i, eachpartlen=%i, reserved=%i\n",tocopy,part,eachpartlen,reserved);
-#endif 
+#endif
       memcpy(part_text, text +(eachpartlen *part), tocopy);
-      part_text_length = tocopy; 
-      sprintf(udh_data,"05 00 03 %02X %02X %02X",concatenated_id,parts,part+1); 
-      with_udh=1;  
+      part_text_length = tocopy;
+      sprintf(udh_data,"05 00 03 %02X %02X %02X",concatenated_id,parts,part+1);
+      with_udh=1;
     }
     else  // No part numbers
     {
@@ -4435,12 +4606,12 @@ int send1sms(int* quick, int* errorcounter)
         tocopy = eachpartlen;
 #ifdef DEBUGMSG
   printf("!! tocopy=%i, part=%i, eachpartlen=%i\n",tocopy,part,eachpartlen);
-#endif 
+#endif
       memcpy(part_text, text +(eachpartlen *part), tocopy);
       part_text_length = tocopy;
     }
 
-    // Some modems cannot send if the memory is full. 
+    // Some modems cannot send if the memory is full.
     if ((receive_before_send) && (DEVICE.incoming))
     {
       receivesms(quick, 1);
@@ -4523,8 +4694,11 @@ int send1sms(int* quick, int* errorcounter)
 
         writelogfile(LOG_INFO, 0, "I have to make a voice call to %s, with (%i times) DTMF %s",
                      to,count,part_text);
-        
-        if (set_numberformat(NULL, to, to_type) == NF_INTERNATIONAL)
+
+        // 3.1.16beta: Fix: Did not make a voicecall to short number starting with 's'.
+        if (*to == 's')
+          sprintf(command, "ATD%s;\r", to + 1);
+        else if (set_numberformat(NULL, to, to_type) == NF_INTERNATIONAL)
           sprintf(command, "ATD+%s;\r", to);
         else
           sprintf(command, "ATD%s;\r", to);
@@ -4549,7 +4723,11 @@ int send1sms(int* quick, int* errorcounter)
 
           wait_time = time(0);
 
-          put_command(command, answer, sizeof(answer), 24, expect);
+          // 3.1.16beta: If wait_delay is set to zero, use 150:
+          if (wait_delay <= 0)
+            wait_delay = 150;
+
+          put_command(command, answer, sizeof(answer), "atd", expect);
 
           for (;;)
           {
@@ -4615,7 +4793,10 @@ int send1sms(int* quick, int* errorcounter)
 
                     if (i == 0)
                     {
+                      // TODO: With a new Telit chip, last CLCC gets 0 (active) even when there is no call active. Polling does not help.
+
                       strcpy(answer, "OK");
+                      strcpy(voicecall_result, answer);
                       break_for = 1;
                       break;
                     }
@@ -4641,7 +4822,9 @@ int send1sms(int* quick, int* errorcounter)
               }
             }
 
-            if (time(0) > wait_time + 150)
+            // 3.1.16beta: Use the delay which was set by user.
+            //if (time(0) > wait_time + 150)
+            if (time(0) > wait_time + wait_delay)
             {
               strcpy(voicecall_result, "Timeout");
               writelogfile(LOG_INFO, 0, "The result of a voice call was %s", voicecall_result);
@@ -4649,7 +4832,7 @@ int send1sms(int* quick, int* errorcounter)
               break;
             }
 
-            put_command((DEVICE.voicecall_cpas)? "AT+CPAS\r" : "AT+CLCC\r", answer, sizeof(answer), 24, expect);
+            put_command((DEVICE.voicecall_cpas)? "AT+CPAS\r" : "AT+CLCC\r", answer, sizeof(answer), (DEVICE.voicecall_cpas)? "cpas" : "clcc", expect);
           }
         }
         else
@@ -4658,7 +4841,7 @@ int send1sms(int* quick, int* errorcounter)
           {
             // 3.1.7:
             // put_command(command, answer, sizeof(answer), 24, expect);
-            i = put_command(command, answer, sizeof(answer), 24, expect);
+            i = put_command(command, answer, sizeof(answer), "atd", expect);
             if (!(*answer) && i == -2)
               strcpy(answer, "Timeout");
 
@@ -4702,6 +4885,11 @@ int send1sms(int* quick, int* errorcounter)
               t_sleep(1);
             }
             while (time(0) < wait_time +wait_delay);
+
+            // 3.1.16beta: If no answer, it's Timeout:
+            if (!(*answer))
+              strcpy(answer, "Timeout");
+
             change_crlf(cut_emptylines(cutspaces(strcpy(voicecall_result, answer))), ' ');
             // 3.1.7:
             writelogfile(LOG_INFO, 0, "The result of a voice call was %s", voicecall_result);
@@ -4730,6 +4918,7 @@ int send1sms(int* quick, int* errorcounter)
           char end_char;
           int tones = 0;
           char *quotation_mark;
+          char tone_timeout[32];
 
           cmd_length = (DEVICE.voicecall_vts_list) ? 2 : 9;
           end_char = (DEVICE.voicecall_vts_list) ? ',' : ';';
@@ -4766,10 +4955,15 @@ int send1sms(int* quick, int* errorcounter)
 
           // ----------------------------------------------------------------------
 
+          // 3.1.15:
+          snprintf(tone_timeout, sizeof(tone_timeout), "%i", (int)(tones * 0.39 + 1) * 5);
+
           for (i = 0; (i < count) && tones; i++)
           {
             t_sleep(3);
-            put_command(command, answer, sizeof(answer), tones *0.39 +1, expect);
+
+            //put_command(command, answer, sizeof(answer), tones *0.39 +1, expect);
+            put_command(command, answer, sizeof(answer), tone_timeout, expect);
             if (strstr(answer, "ERROR"))
               if (i > 0)
                 break;
@@ -4785,7 +4979,7 @@ int send1sms(int* quick, int* errorcounter)
           else
             sprintf(command, "AT+CHUP\r");
 
-          put_command(command, answer, sizeof(answer), 1, expect);
+          put_command(command, answer, sizeof(answer), "ath", expect);
           if (!(*voicecall_result))
             change_crlf(cut_emptylines(cutspaces(strcpy(voicecall_result, answer))), ' ');
         }
@@ -4800,7 +4994,7 @@ int send1sms(int* quick, int* errorcounter)
     }
     else
     {
-      // Try to send the sms      
+      // Try to send the sms
 
       // If there is no user made udh (message header say so), the normal
       // concatenation header can be used. With user made udh the concatenation
@@ -4837,7 +5031,7 @@ int send1sms(int* quick, int* errorcounter)
       }
 
       i = send_part((from[0])? from : DEVICE.number, to, part_text, part_text_length, alphabet, with_udh, udh_data,
-                    *quick, flash, messageids, smsc, report, validity, part, parts, replace_msg, system_msg, to_type, error_text);
+                    *quick, flash, messageids, smsc, report, validity, part, parts, replace_msg, system_msg, to_type, retries, error_text);
 
       if (i == 0)
       {
@@ -4895,7 +5089,7 @@ int send1sms(int* quick, int* errorcounter)
       }
     }
   }
-    
+
   // Mark modem status as idle while eventhandler is running
   // Not if there has been trouble.
   if (!trouble_logging_started)
@@ -4916,8 +5110,9 @@ int send1sms(int* quick, int* errorcounter)
     int file_is_empty = 0;
     char timestamp[81];
 
+    // 3.1.16beta: Zero sized files are not spooled. Changed st_size == 0 to < 8.
     if (stat(filename, &statbuf) == 0)
-      if (statbuf.st_size == 0)
+      if (statbuf.st_size < 8)
         file_is_empty = 1;
 
     prepare_remove_headers(remove_headers, sizeof(remove_headers));
@@ -4932,6 +5127,8 @@ int send1sms(int* quick, int* errorcounter)
 
     if (!strstr(DEVICE.identity, "ERROR") && *HDR_Identity2 != '-')
       sprintf(strchr(add_headers, 0), "%s %s\n", get_header(HDR_Identity, HDR_Identity2), DEVICE.identity);
+    if (!strstr(DEVICE.imei, "ERROR") && *HDR_IMEI2 != '-')
+      sprintf(strchr(add_headers, 0), "%s %s\n", get_header(HDR_IMEI, HDR_IMEI2), DEVICE.imei);
     if (fail_text && *fail_text && *HDR_FailReason2 != '-')
       sprintf(strchr(add_headers, 0), "%s %s\n", get_header(HDR_FailReason, HDR_FailReason2), fail_text);
 
@@ -4970,8 +5167,9 @@ int send1sms(int* quick, int* errorcounter)
         apply_filename_preview(newfilename, txt, filename_preview);
       }
 
-      //writelogfile(LOG_INFO, process_title, "Moved file %s to %s",filename, (keep_filename)? d_failed : newfilename);
-      writelogfile(LOG_INFO, 0, "Moved file %s to %s", filename, newfilename);
+      // 3.1.16beta:
+      //writelogfile(LOG_INFO, 0, "Moved file %s to %s", filename, newfilename);
+      writelogfile(LOG_INFO, 0, "SMS To: %s. Moved file %s to %s", to, filename, newfilename);
     }
 
     if (eventhandler[0] || DEVICE.eventhandler[0])
@@ -5032,13 +5230,15 @@ int send1sms(int* quick, int* errorcounter)
     {
       if (*HDR_MessageId2 != '-')
         sprintf(strchr(add_headers, 0), "%s %s\n",
-                get_header(HDR_MessageId, HDR_MessageId2), messageids);  
+                get_header(HDR_MessageId, HDR_MessageId2), messageids);
     }
     if (!strstr(DEVICE.identity, "ERROR") && *HDR_Identity2 != '-')
       sprintf(strchr(add_headers, 0), "%s %s\n", get_header(HDR_Identity, HDR_Identity2), DEVICE.identity);
+    if (!strstr(DEVICE.imei, "ERROR") && *HDR_IMEI2 != '-')
+      sprintf(strchr(add_headers, 0), "%s %s\n", get_header(HDR_IMEI, HDR_IMEI2), DEVICE.imei);
     if (*voicecall_result && *HDR_Result != '.')
       sprintf(strchr(add_headers, 0), "%s %s\n",
-              get_header(HDR_Result, HDR_Result2), voicecall_result);  
+              get_header(HDR_Result, HDR_Result2), voicecall_result);
     if (store_sent_pdu == 3 ||
        (store_sent_pdu == 2 && (alphabet == 1 || alphabet == 2)))
       p = outgoing_pdu_store;
@@ -5073,13 +5273,14 @@ int send1sms(int* quick, int* errorcounter)
         apply_filename_preview(newfilename, txt, filename_preview);
       }
 
-      //writelogfile(LOG_INFO, process_title, "Moved file %s to %s",filename, (keep_filename)? d_sent : newfilename);
-      writelogfile(LOG_INFO, 0, "Moved file %s to %s", filename, newfilename);
+      // 3.1.16beta:
+      //writelogfile(LOG_INFO, 0, "Moved file %s to %s", filename, newfilename);
+      writelogfile(LOG_INFO, 0, "SMS To: %s. Moved file %s to %s", to, filename, newfilename);
     }
 
     if (eventhandler[0] || DEVICE.eventhandler[0])
     {
-      // Keke: Documentation says about the messsageid: 
+      // Keke: Documentation says about the messsageid:
       // " it is only used if you sent a message successfully with status report enabled."
       // Perhaps it should be removed when status report was not requested?
       if (DEVICE.eventhandler[0])
@@ -5097,7 +5298,7 @@ int send1sms(int* quick, int* errorcounter)
     }
     unlockfile(filename);
   }
-    
+
 #ifdef DEBUGMSG
   printf("quick=%i errorcounter=%i\n",*quick,*errorcounter);
   printf("returns %i\n",success);
@@ -5131,6 +5332,9 @@ void send_admin_message(int *quick, int *errorcounter, char *text)
   static int message_count = 0;
   char buffer[256];
   int textlen;
+  int modem_was_open; // 3.1.16beta. Fix. If modem was not open, we must open and close it.
+  int save_store_sent_pdu = store_sent_pdu; // 3.1.16beta: Do not store PDU when sending admin msg.
+  int retries = -1; // 3.1.16beta.
 
   (void) errorcounter;    // 3.1.7: remove warning.
   if (DEVICE.admin_to[0])
@@ -5164,24 +5368,41 @@ void send_admin_message(int *quick, int *errorcounter, char *text)
       }
     }
 
+    modem_was_open = modem_handle >= 0;
+    if (!modem_was_open)
+      if (!try_openmodem())
+        return;
+
     if (!message_count)
       last_msgc_clear = time(0);
     message_count++;
     writelogfile(LOG_INFO, 0, "Sending an administrative message: %s", text);
     textlen = iso_utf8_2gsm(text, strlen(text), buffer, sizeof(buffer));
 
-    send_part("Smsd3" /*from*/, 
-                  to, buffer, textlen, 
-                  0 /*ISO alphabet*/, 
-                  0 /*with_udh*/, "" /*udh_data*/, 
-                  *quick, 
+    store_sent_pdu = 0;
+
+    // 3.1.16beta: If send_retries is set to zero for this device, use value 2 for admin message.
+    if (DEVICE.send_retries < 1)
+      retries = 2;
+
+    send_part("Smsd3" /*from*/,
+                  to, buffer, textlen,
+                  0 /*ISO alphabet*/,
+                  0 /*with_udh*/, "" /*udh_data*/,
+                  *quick,
                   0 /*flash*/,
-                  messageids, 
-                  "" /*smsc*/, 
-                  DEVICE.report, 
+                  messageids,
+                  "" /*smsc*/,
+                  DEVICE.report,
                   -1 /*validity*/,
                   0, 1, 0, 0, -1 /*to_type*/,
+                  retries,
                   0);
+
+    store_sent_pdu = save_store_sent_pdu;
+
+    if (!modem_was_open)
+      try_closemodem(0);
   }
 }
 
@@ -5200,8 +5421,8 @@ int cmd_to_modem(
 	int result = 1;
 	char *cmd;
 	char *p;
-	char answer[500];
-	char buffer[600];
+	char answer[1024]; // 3.1.16beta: 500 -> 1024
+	char buffer[1024]; // 3.1.16beta: 600 -> 1024
 	int fd;
 	int log_retry = 3;
 	int i;
@@ -5216,7 +5437,7 @@ int cmd_to_modem(
 
 	if (cmd_number == 1 && DEVICE.needs_wakeup_at)
 	{
-		put_command("AT\r", 0, 0, 1, 0);
+		put_command("AT\r", 0, 0, "default", 0);
 		usleep_until(time_usec() + 100000);
 		read_from_modem(answer, sizeof(answer), 2);
 	}
@@ -5229,7 +5450,7 @@ int cmd_to_modem(
 		if (!strncasecmp(command, "AT+CUSD", 7) && strlen(command) > 9)
 		{
 			is_ussd++;
-			put_command(cmd, answer, sizeof(answer), 3, "(\\+CUSD:)|(ERROR)");
+			put_command(cmd, answer, sizeof(answer), "cusd", "(\\+CUSD:)|(ERROR)");
 		}
 		else
 		// 3.1.12:
@@ -5240,13 +5461,15 @@ int cmd_to_modem(
 			if ((expect = strdup(cmd + 1)))
 			{
 				*(strchr(expect, ']')) = 0;
-				put_command(strchr(cmd, ']') + 1, answer, sizeof(answer), 1, expect);
+				put_command(strchr(cmd, ']') + 1, answer, sizeof(answer), "cmd", expect);
 				free(expect);
+
+				//TODO: is_ussd ?
 			}
 		}
 		else
 		// -------
-			put_command(cmd, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+			put_command(cmd, answer, sizeof(answer), "cmd", EXPECT_OK_ERROR);
 
 		if (*answer)
 		{
@@ -5358,7 +5581,7 @@ int cmd_to_modem(
 				char te_charset[41];
 				size_t n, i;
 
-				put_command("AT+CSCS?\r", te_charset, sizeof(te_charset), 1, EXPECT_OK_ERROR);
+				put_command("AT+CSCS?\r", te_charset, sizeof(te_charset), "default", EXPECT_OK_ERROR);
 				cut_ctrl(cutspaces(te_charset));
 				if (!(p = strchr(te_charset, '"')))
 					*te_charset = 0;
@@ -5371,7 +5594,10 @@ int cmd_to_modem(
 				if (!(*te_charset))
 					strcpy(te_charset, "ERROR");
 
-				sprintf(tmp_filename, "%s/smsd.XXXXXX", "/tmp");
+				// 3.1.16beta: Use tmpdir:
+				//sprintf(tmp_filename, "%s/smsd.XXXXXX", "/tmp");
+				sprintf(tmp_filename, "%s/smsd.XXXXXX", tmpdir);
+
 				fd = mkstemp(tmp_filename);
 				write(fd, answer, strlen(answer));
 				write(fd, "\n", 1);
@@ -5522,20 +5748,6 @@ int run_rr()
     }
   }
 
-  if (result == 1)
-  {
-    p = DEVICE.dev_rr_cmd;
-    while (*p)
-    {
-      if (!cmd_to_modem(p, ++cmd_number))
-      {
-        result = 0;
-        break;
-      }
-      p = strchr(p, 0) + 1;
-    }
-  }
-
   if (DEVICE.dev_rr_post_run[0])
   {
     p = "POST_RUN";
@@ -5556,6 +5768,22 @@ int run_rr()
       else
         writelogfile0(LOG_ERR, 0, tb_sprintf("Regular_run %s %s returned %i", DEVICE.dev_rr_post_run, p, i));
       alarm_handler0(LOG_ERR, tb);
+    }
+  }
+
+  // 3.1.16beta: dev_rr_cmd is executed after dev_rr_post_run
+
+  if (result == 1)
+  {
+    p = DEVICE.dev_rr_cmd;
+    while (*p)
+    {
+      if (!cmd_to_modem(p, ++cmd_number))
+      {
+        result = 0;
+        break;
+      }
+      p = strchr(p, 0) + 1;
     }
   }
 
@@ -5704,7 +5932,7 @@ int send_startstring()
     do
     {
       retries++;
-      put_command(DEVICE.startstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
+      put_command(DEVICE.startstring, answer, sizeof(answer), "start", EXPECT_OK_ERROR);
       if (strstr(answer, "ERROR"))
         if (retries < 2)
           t_sleep(1);
@@ -5753,7 +5981,7 @@ int send_stopstring()
       do
       {
         retries++;
-        put_command(DEVICE.stopstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
+        put_command(DEVICE.stopstring, answer, sizeof(answer), "stop", EXPECT_OK_ERROR);
         if (strstr(answer, "ERROR"))
           if (retries < 2)
             t_sleep(1);
@@ -5874,10 +6102,11 @@ void devicespooler()
   update_message_counter(0, DEVICE.name);
 
   *smsd_debug = 0;
+  put_command_sent = 0;
 
   i = LOG_NOTICE;
   if (DEVICE.outgoing && !DEVICE.incoming)
-    p = " Will only send messages.";  
+    p = " Will only send messages.";
   else if (!DEVICE.outgoing && DEVICE.incoming)
     p = " Will only receive messages.";
   else if (!DEVICE.outgoing && !DEVICE.incoming)
@@ -5885,7 +6114,17 @@ void devicespooler()
     p = " Nothing to do with a modem: sending and receiving are both disabled!";
     i = LOG_CRIT;
   }
-  writelogfile(i, 0, "Modem handler %i has started. PID: %i.%s", process_id, (int)getpid(), p);
+
+  // 3.1.16beta:
+  //writelogfile(i, 0, "Modem handler %i has started. PID: %i.%s", process_id, (int)getpid(), p);
+  if (DEVICE.logfile[0] && strcmp(DEVICE.logfile, logfile))
+  {
+    flush_smart_logging();
+    writelogfile(i, 2, "Modem handler %i has started. PID: %i.%s", process_id, (int)getpid(), p);
+    flush_smart_logging();
+  }
+  else
+    writelogfile(i, 0, "Modem handler %i has started. PID: %i.%s", process_id, (int)getpid(), p);
 
   // 3.1beta7: This message is printed to stderr while reading setup. Now also
   // log it and use the alarmhandler. Setting is cleared. Later this kind of
@@ -5898,9 +6137,9 @@ void devicespooler()
     DEVICE.report = 0;
   }
 
-  errorcounter=0;  
+  errorcounter=0;
   concatenated_id = getrand(255);
-  
+
   if (check_suspend(0))
     return;
 
@@ -5934,6 +6173,25 @@ void devicespooler()
         strcat(buffer, ",");
       strcat(buffer, p);
       p = strchr(p, 0) +1;
+    }
+    writelogfile(LOG_NOTICE, 0, buffer);
+  }
+
+  // 3.1.16beta: Report queues at startup:
+  if (DEVICE.queues[0][0])
+  {
+    char buffer[PATH_MAX];
+
+    sprintf(buffer, "Serving queues: ");
+
+    for (i = 0; i < NUMBER_OF_MODEMS; i++)
+    {
+      if (DEVICE.queues[i][0] == 0)
+        break;
+
+      if (i > 0)
+        strcat(buffer, ", ");
+      strcat(buffer, DEVICE.queues[i]);
     }
     writelogfile(LOG_NOTICE, 0, buffer);
   }
@@ -5979,15 +6237,21 @@ void devicespooler()
     }
   }
 
-  if (DEVICE.read_timeout != 5)
+  if (DEVICE.read_timeout != 5 && !DEVICE.report_read_timeouts)
       writelogfile(LOG_NOTICE, 0, "Using read_timeout %i seconds.", DEVICE.read_timeout);
 
   if (DEVICE.communication_delay > 0)
       writelogfile(LOG_NOTICE, 0, "Using communication_delay between new commands %i milliseconds.", DEVICE.communication_delay);
 
+  if (DEVICE.send_retries != 2 && DEVICE.outgoing)
+      writelogfile(LOG_NOTICE, 0, "Using send_retries %i.", DEVICE.send_retries);
+
+  if (DEVICE.report_read_timeouts)
+    log_read_timeouts(LOG_NOTICE);
+
 #ifdef DEBUGMSG
   printf("!! Entering endless send/receive loop\n");
-#endif    
+#endif
 
   last_msgc_clear = time(0);
   last_rr = 0;
@@ -6280,8 +6544,8 @@ void devicespooler()
    Termination handler
    ======================================================================= */
 
-// Stores termination request when termination signal has been received 
-   
+// Stores termination request when termination signal has been received
+
 void soft_termination_handler (int signum)
 {
 
@@ -6339,9 +6603,14 @@ void abnormal_termination(int all)
   {
     if (all)
       sendsignal2devices(SIGTERM);
+
+    // 3.1.16beta: Be the last who stops:
+    waitpid(0, 0, 0);
+
     remove_pid(pidfile);
     if (*infofile)
       unlink(infofile);
+
     writelogfile(LOG_CRIT, 1, "Smsd mainprocess terminated abnormally. PID: %i.", (int)getpid());
 
     flush_smart_logging();
@@ -6370,8 +6639,15 @@ void signal_handler(int signum)
 {
   signal(SIGCONT,SIG_IGN);
   signal(SIGUSR2,SIG_IGN);
+  signal(SIGCHLD,SIG_IGN);
 
-  if (signum == SIGCONT)
+  if (signum == SIGCHLD)
+  {
+    // 3.1.16beta: If a modem process stops, mainprocess will listen it in the main loop.
+    if (process_id == -1)
+      got_sigchld = 1;
+  }
+  else if (signum == SIGCONT)
   {
     if (process_id == -1)
     {
@@ -6400,6 +6676,7 @@ void signal_handler(int signum)
 
   signal(SIGCONT,signal_handler);
   signal(SIGUSR2,signal_handler);
+  signal(SIGCHLD,signal_handler);
 }
 
 /* =======================================================================
@@ -6415,6 +6692,19 @@ int main(int argc,char** argv)
   pid_t pid;
   char timestamp[81];
 
+  // 3.1.16beta: Set tmpdir, use TMPDIR or TEMPDIR if defined:
+  char *p = getenv("TMPDIR");
+  if (p && *p && strlen(p) < sizeof(tmpdir))
+    snprintf(tmpdir, sizeof(tmpdir), "%s", p);
+  else
+  {
+    p = getenv("TEMPDIR");
+    if (p && *p && strlen(p) < sizeof(tmpdir))
+      snprintf(tmpdir, sizeof(tmpdir), "%s", p);
+    else
+      strcpy(tmpdir, "/tmp");
+  }
+
   terminate = 0;
   strcpy(process_title, "smsd");
   signal(SIGTERM,soft_termination_handler);
@@ -6423,7 +6713,9 @@ int main(int argc,char** argv)
   signal(SIGUSR1,soft_termination_handler);
   signal(SIGUSR2,signal_handler);
   signal(SIGCONT,signal_handler);
-  // TODO: Some more signals should be ignored or handled too? 
+  signal(SIGCHLD,signal_handler); // 3.1.16beta: To reap stopped modem processes.
+
+  // TODO: Some more signals should be ignored or handled too?
   *run_info = 0;
   incoming_pdu_store = NULL;
   outgoing_pdu_store = NULL;
@@ -6557,8 +6849,8 @@ int main(int argc,char** argv)
     exit(EXIT_FAILURE);
   }
 
-  logfilehandle = openlogfile(logfile, LOG_DAEMON, loglevel);  
-  writelogfile(LOG_CRIT, 0, "Smsd v%s started.", smsd_version);  
+  logfilehandle = openlogfile(logfile, LOG_DAEMON, loglevel);
+  writelogfile(LOG_CRIT, 0, "Smsd v%s started.", smsd_version);
 
   // 3.1.9: Change the current working directory
   if (chdir("/") < 0)
@@ -6766,7 +7058,7 @@ int main(int argc,char** argv)
           {
             if (DEVICE.loglevel != -1)
               loglevel = DEVICE.loglevel;
-            logfilehandle = openlogfile(DEVICE.logfile, LOG_DAEMON, loglevel);  
+            logfilehandle = openlogfile(DEVICE.logfile, LOG_DAEMON, loglevel);
           }
 
           if (talk_with_modem() == 0)
@@ -6789,14 +7081,14 @@ int main(int argc,char** argv)
               do
               {
                 retries++;
-                put_command("AT\r", answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+                put_command("AT\r", answer, sizeof(answer), "default", EXPECT_OK_ERROR);
                 if (!strstr(answer, "OK") && !strstr(answer, "ERROR"))
                 {
                   if (terminate)
                     break;
 
                   // if Modem does not answer, try to send a PDU termination character
-                  put_command("\x1A\r", answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+                  put_command("\x1A\r", answer, sizeof(answer), "default", EXPECT_OK_ERROR);
 
                   if (terminate)
                     break;
@@ -6811,14 +7103,14 @@ int main(int argc,char** argv)
                 exit(127);
               }
 
-              put_command("AT+CIMI\r", answer, SIZE_IDENTITY, 1,EXPECT_OK_ERROR);
+              put_command("AT+CIMI\r", answer, SIZE_IDENTITY, "default", EXPECT_OK_ERROR);
 
               while (*answer && !isdigitc(*answer))
                 strcpyo(answer, answer +1);
 
               if (strstr(answer, "ERROR"))
               {
-                put_command("AT+CGSN\r", answer, SIZE_IDENTITY, 1, EXPECT_OK_ERROR);
+                put_command("AT+CGSN\r", answer, SIZE_IDENTITY, "default", EXPECT_OK_ERROR);
 
                 while (*answer && !isdigitc(*answer))
                   strcpyo(answer, answer +1);
@@ -6882,7 +7174,7 @@ strcpy(DEVICE.name, process_title);
           {
             if (DEVICE.loglevel != -1)
               loglevel = DEVICE.loglevel;
-            logfilehandle = openlogfile(DEVICE.logfile, LOG_DAEMON, loglevel);  
+            logfilehandle = openlogfile(DEVICE.logfile, LOG_DAEMON, loglevel);
           }
 
           devicespooler();
@@ -6893,6 +7185,7 @@ strcpy(DEVICE.name, process_title);
           statistics[i]->status = 'b';
         }
 
+        // Note: Cannot use logtime_format, because it may have timems or timeus defined.
         strftime(timestamp, sizeof(timestamp), datetime_format, localtime(&process_start_time));
 
         writelogfile(LOG_CRIT, 0, "Modem handler %i terminated. PID: %i, was started %s.", process_id, (int)getpid(), timestamp);
@@ -6905,11 +7198,22 @@ strcpy(DEVICE.name, process_title);
         exit(127);
       }
     }
-  } 
+  }
   // Start main program
   process_id=-1;
   mainspooler();
-  writelogfile(LOG_CRIT, 0, "Smsd mainprocess is awaiting the termination of all modem handlers. PID: %i.", (int)getpid());
+
+  // 3.1.16beta: If there are no any modem processes left, skip logging.
+  //writelogfile(LOG_CRIT, 0, "Smsd mainprocess is awaiting the termination of all modem handlers. PID: %i.", (int)getpid());
+  for (i = 0; i < NUMBER_OF_MODEMS; i++)
+  {
+    if (device_pids[i] > 0)
+    {
+      writelogfile(LOG_CRIT, 0, "Smsd mainprocess is awaiting the termination of all modem handlers. PID: %i.", (int)getpid());
+      break;
+    }
+  }
+
   waitpid(0,0,0);
   savestats();
 #ifndef NOSTATS
@@ -6919,9 +7223,10 @@ strcpy(DEVICE.name, process_title);
   if (*infofile)
     unlink(infofile);
 
+  // Note: Cannot use logtime_format, because it may have timems or timeus defined.
   strftime(timestamp, sizeof(timestamp), datetime_format, localtime(&process_start_time));
 
-  writelogfile(LOG_CRIT, 0, "Smsd mainprocess terminated. PID %i, was started %s.", (int)getpid(), timestamp);
+  writelogfile(LOG_CRIT, 0, "Smsd mainprocess terminated. PID: %i, was started %s.", (int)getpid(), timestamp);
 
   flush_smart_logging();
   closelogfile();

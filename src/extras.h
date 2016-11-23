@@ -17,6 +17,7 @@ Either version 2 of the License, or (at your option) any later version.
 #define EXTRAS_H
 
 #include <stdio.h>
+#include <time.h>
 
 /* Converts a string to a boolean value. The string can be:
    1=  true, yes, on, 1
@@ -98,5 +99,14 @@ void strcat_realloc(char **buffer, char *str, char *delimiter);
 char *strcpyo(char *dest, const char *src);
 
 void getfield(char* line, int field, char* result, int size);
+
+int make_uptime_string(char *dest, size_t dest_size, time_t upt);
+
+int is_ok_answer(char *answer);
+int is_error_answer(char *answer);
+int is_ok_0_answer(char *answer);
+int is_error_4_answer(char *answer);
+int is_ok_error_answer(char *answer);
+int is_ok_error_0_4_answer(char *answer);
 
 #endif
