@@ -767,8 +767,9 @@ int read_from_modem(char *answer, int max, int timeout)
       got=0;
       // 3.1.16beta: Do not sleep if the loop will not continue:
       timeoutcounter++;
+      // 25ms, roughly 25 characters on 9600 bps
       if (timeoutcounter < timeout)
-        usleep_until(time_usec() + 100000);
+        usleep_until(time_usec() + 25000);
     }
     else
     {
@@ -962,7 +963,7 @@ int detect_routed_message(char *answer)
       write_to_modem("AT+CNMA\r", 30, 1, 0);
 
       *loganswer = 0;
-      read_from_modem(loganswer, sizeof(loganswer), 2);
+      read_from_modem(loganswer, sizeof(loganswer), 8);
       if (log_single_lines)
         change_crlf(loganswer, ' ');
 
@@ -994,7 +995,7 @@ void do_hangup(char *answer)
 
 		do
 		{
-			read_from_modem(tmpanswer, sizeof(tmpanswer), 2);	// One read attempt is 200ms
+			read_from_modem(tmpanswer, sizeof(tmpanswer), 8); // Timeout is 8x25 = 200ms
 
 			// Any answer is ok:
 			if (*tmpanswer)
@@ -1126,7 +1127,7 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
     do
     {
       i = strlen(loganswer);
-      read_from_modem(loganswer, sizeof(loganswer), 2);  // One read attempt is 200ms
+      read_from_modem(loganswer, sizeof(loganswer), 1);  // One read attempt is 25 ms
     }
     while (strlen(loganswer) > (size_t)i);
 
@@ -1210,7 +1211,7 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
 
     do
     {
-      read_from_modem(answer, max, 2);  // One read attempt is 200ms
+      read_from_modem(answer, max, 8);  // Timeout is 8x25 = 200ms
 
       // check if it's the expected answer
       if (expect && expect[0] && (regexec(&re, answer, (size_t) 0, NULL, 0) == 0))
@@ -1471,7 +1472,7 @@ int initmodem(char *new_smsc, int receiving)
     snprintf(command, sizeof(command), "%s%s", DEVICE.wakeup_init, (DEVICE_IS_SOCKET && DEVICE.telnet_crlf)? "\r\n" : "\n");
     put_command(command, 0, 0, "default", 0);
     usleep_until(time_usec() + 100000);
-    read_from_modem(answer, sizeof(answer), 2);
+    read_from_modem(answer, sizeof(answer), 8);
   }
 
   // 3.1.7: After being idle, some modems do not answer to the first AT command.
@@ -1481,7 +1482,7 @@ int initmodem(char *new_smsc, int receiving)
   {
     put_command("AT\r", 0, 0, "default", 0);
     usleep_until(time_usec() + 100000);
-    read_from_modem(answer, sizeof(answer), 2);
+    read_from_modem(answer, sizeof(answer), 8);
   }
 
   if (terminate)
