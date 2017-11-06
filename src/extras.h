@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -19,11 +18,13 @@ Either version 2 of the License, or (at your option) any later version.
 #include <stdio.h>
 #include <time.h>
 
+FILE *fopen_mkstemp(char *fname);
+
 /* Converts a string to a boolean value. The string can be:
    1=  true, yes, on, 1
    0 = all other strings
    Only the first character is significant. */
-		
+
 int yesno(char *value);
 
 /* Like yesno, but defaults to -1. 0 = false, no, off, 0 */
@@ -39,12 +40,15 @@ int is_blank(char c);
 int line_is_blank(char *line);
 
 /* Moves a file into another directory. Returns 1 if success. */
-int movefile(char* filename, char* directory);
+int movefile(char *filename, char *directory);
+int copyfile(char *filename, char *directory);
+int copymovefile(int copy, char *filename, char *directory);
 
 /* Moves a file into another directory. Destination file is protected with
    a lock file during the operation. Returns 1 if success. */
-//int movefilewithdestlock(char* filename, char* directory);
-int movefilewithdestlock_new(char* filename, char* directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename);
+int movefilewithdestlock(char *filename, char *directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename);
+int copyfilewithdestlock(char *filename, char *directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename);
+int copymovefilewithdestlock(int copy, char *filename, char *directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename);
 
 /* removes ctrl chars at the beginning and the end of the text and removes */
 /* \r in the text. Returns text.*/
@@ -108,5 +112,12 @@ int is_ok_0_answer(char *answer);
 int is_error_4_answer(char *answer);
 int is_ok_error_answer(char *answer);
 int is_ok_error_0_4_answer(char *answer);
+
+int get_file_details(char *filename, char *dest, size_t dest_size);
+
+int calculate_required_parts(char *text, int textlen, int *reserved, int split, int *use_get_part);
+int get_part(char **part_start, char *text, int textlen, int reserved, int part);
+
+int spend_delay(int delaytime, int (*cb)(time_t *), time_t *cb_last, int cb_interval);
 
 #endif

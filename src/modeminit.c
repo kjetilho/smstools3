@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -100,11 +99,11 @@ typedef struct {
 _gsm_general_error gsm_cme_errors[] =
 {
   // 3GPP TS 07.07 version 7.8.0 Release 1998 (page 90) ETSI TS 100 916 V7.8.0 (2003-03)
-  {0,	"phone failure"},
-  {1,	"no connection to phone"},
-  {2,	"phone-adaptor link reserved"},
-  {3,	"operation not allowed"},
-  {4,	"operation not supported"},
+  {0,	"Phone failure"},
+  {1,	"No connection to phone"},
+  {2,	"Phone-adaptor link reserved"},
+  {3,	"Operation not allowed"},
+  {4,	"Operation not supported"},
   {5,	"PH-SIM PIN required"},
   {6,	"PH-FSIM PIN required"},
   {7,	"PH-FSIM PUK required"},
@@ -114,43 +113,58 @@ _gsm_general_error gsm_cme_errors[] =
   {13,	"SIM failure"},
   {14,	"SIM busy"},
   {15,	"SIM wrong"},
-  {16,	"incorrect password"},
+  {16,	"Incorrect password"},
   {17,	"SIM PIN2 required"},
   {18,	"SIM PUK2 required"},
-  {20,	"memory full"},
-  {21,	"invalid index"},
-  {22,	"not found"},
-  {23,	"memory failure"},
-  {24,	"text string too long"},
-  {25,	"invalid characters in text string"},
-  {26,	"dial string too long"},
-  {27,	"invalid characters in dial string"},
-  {30,	"no network service"},
-  {31,	"network timeout"},
-  {32,	"network not allowed - emergency calls only"},
-  {40,	"network personalisation PIN required"},
-  {41,	"network personalisation PUK required"},
-  {42,	"network subset personalisation PIN required"},
-  {43,	"network subset personalisation PUK required"},
-  {44,	"service provider personalisation PIN required"},
-  {45,	"service provider personalisation PUK required"},
-  {46,	"corporate personalisation PIN required"},
-  {47,	"corporate personalisation PUK required"},
+  {20,	"Memory full"},
+  {21,	"Invalid index"},
+  {22,	"Not found"},
+  {23,	"Memory failure"},
+  {24,	"Text string too long"},
+  {25,	"Invalid characters in text string"},
+  {26,	"Dial string too long"},
+  {27,	"Invalid characters in dial string"},
+  {30,	"No network service"},
+  {31,	"Network timeout"},
+  {32,	"Network not allowed - emergency calls only"},
+  {40,	"Network personalisation PIN required"},
+  {41,	"Network personalisation PUK required"},
+  {42,	"Network subset personalisation PIN required"},
+  {43,	"Network subset personalisation PUK required"},
+  {44,	"Service provider personalisation PIN required"},
+  {45,	"Service provider personalisation PUK required"},
+  {46,	"Corporate personalisation PIN required"},
+  {47,	"Corporate personalisation PUK required"},
+  {48,  "PH-SIM PUK required"},
 
-  // 3.1.5:
-  {515, "device busy"},
+  {100, "Unknown"},
 
-  {100,	"unknown"}
+  {103, "Illegal MS"},
+  {106, "Illegal ME"},
+  {107, "GPRS services not allowed"},
+  {111, "PLMN not allowed"},
+  {112, "Location area not allowed"},
+  {113, "Roaming not allowed in this location area"},
+  {126, "Operation temporary not allowed"},
+  {132, "Service operation not supported"},
+  {133, "Requested service option not subscribed"},
+  {134, "Service option temporary out of order"},
+  {148, "Unspecified GPRS error"},
+  {149, "PDP authentication failure"},
+  {150, "Invalid mobile class"},
 
-// Some other possible errors (source document?):
-//CME ERROR: 48  PH-SIM PUK required
-//CME ERROR: 256 Operation temporarily not allowed
-//CME ERROR: 257 Call barred
-//CME ERROR: 258 Phone is busy
-//CME ERROR: 259 User abort
-//CME ERROR: 260 Invalid dial string
-//CME ERROR: 261 SS not executed
-//CME ERROR: 262 SIM Blocked
+  {256, "Operation temporarily not allowed"},
+  {257, "Call barred"},
+  {258, "Phone is busy"},
+  {259, "User abort"},
+  {260, "Invalid dial string"},
+  {261, "SS not executed"},
+  {262, "SIM Blocked"},
+  {263, "Invalid block"},
+
+  {515, "Device busy"},
+
+  {772, "SIM powered down"}
 
 };
 
@@ -290,19 +304,23 @@ int get_read_timeout(char *keyword)
 {
   int i;
   int m = sizeof read_timeouts / sizeof *read_timeouts;
+  int result = 1;
 
   if (!keyword)
     return 0;
 
   for (i = 0; i < m; i++)
     if (!strcmp(keyword, read_timeouts[i].keyword))
-      return read_timeouts[i].value;
+      result = read_timeouts[i].value;
 
   // Accept direct value:
   if ((i = atoi(keyword)) > 0)
-    return i;
+    result = i;
 
-  return 1;
+  if (log_read_timing)
+    writelogfile(LOG_DEBUG, 0, "read_timeout for %s is %i sec", keyword, DEVICE.read_timeout * result);
+
+  return result;
 }
 
 int set_read_timeout(char *error, int size_error, char *keyword, int value)
@@ -341,7 +359,10 @@ void log_read_timeouts(int level)
   writelogfile(level, 0, "Using read_timeout %i seconds.", DEVICE.read_timeout);
 
   for (i = 0; i < m; i++)
-    writelogfile(level, 0, "Using read_timeout_%s %i * read_timeout = %i seconds. %s", read_timeouts[i].keyword, read_timeouts[i].value, read_timeouts[i].value * DEVICE.read_timeout, read_timeouts[i].comment);
+    writelogfile(level, 0, "Using read_timeout_%s %i * read_timeout = %i seconds. %s",
+                 read_timeouts[i].keyword, read_timeouts[i].value,
+                 read_timeouts[i].value * DEVICE.read_timeout,
+                 read_timeouts[i].comment);
 
 }
 
@@ -625,7 +646,7 @@ void negotiate_with_telnet(char *answer, int *len)
       //}
       else if (command == SB)
       {
-        char commands[512];
+        char commands[1024];
 
         *commands = 0;
 
@@ -640,7 +661,7 @@ void negotiate_with_telnet(char *answer, int *len)
           }
 
           if (i > idx +2 && strlen(commands) < sizeof(commands) - 6)
-            sprintf(strchr(commands, 0), "%s0x%02X", (*commands)? ", " : "", answer[i]);
+            sprintf(strchr(commands, 0), "%s%i (0x%02X)", (*commands)? ", " : "", (int)answer[i], answer[i]);
         }
       }
 
@@ -733,11 +754,13 @@ void negotiate_with_telnet(char *answer, int *len)
 #undef SE
 }
 
-// Read max characters from modem. The function returns when it received at
-// least 1 character and then the modem is quiet for timeout*0.1s.
-// The answer might contain already a string. In this case, the answer
-// gets appended to this string.
 int read_from_modem(char *answer, int max, int timeout)
+{
+
+  return read_from_modem0(answer, max, timeout, 0, 0);
+}
+
+int read_from_modem0(char *answer, int max, int timeout, regex_t *re, char *expect)
 {
   int count=0;
   int got=0;
@@ -751,8 +774,40 @@ int read_from_modem(char *answer, int max, int timeout)
   // 3.1.16beta: Cannot use strlen(answer) in the loop when 0x00's are not removed here.
   int answer_length = strlen(answer);
 
+  // 3.1.16beta2: If regular expression is defined, poll faster and stop as soon as regex matches.
+  char *check_answer = NULL;
+  int i;
+  int sleep_time = 100000;
+  int poll_faster = DEVICE.poll_faster;
+
+  if (re && poll_faster > 0)
+  {
+    check_answer = (char *)malloc(max);
+    timeout *= poll_faster;
+    sleep_time /= poll_faster;
+  }
+
+  if (log_read_timing)
+    writelogfile(LOG_DEBUG, 0, "read_from_modem, %i, '%s', %s", timeout, answer, (expect)? expect : "");
+
   do
   {
+    if (check_answer && success)
+    {
+      *check_answer = '\0';
+      for (i = 0; i < answer_length; i++)
+        check_answer[i] = (answer[i] == '\0')? '\n' : answer[i];
+      check_answer[i] = '\0';
+      if (log_read_timing)
+        writelogfile(LOG_DEBUG, 0, "answer now: %s", check_answer);
+      if (regexec(re, check_answer, (size_t) 0, NULL, 0) == 0)
+      {
+        if (log_read_timing)
+          writelogfile(LOG_DEBUG, 0, "answer is what expected, go ahead");
+        break;
+      }
+    }
+
     // How many bytes do I want to read maximum? Not more than buffer size -1 for termination character.
     count = answer_length; //count=strlen(answer);
     toread=max-count-1;
@@ -760,6 +815,10 @@ int read_from_modem(char *answer, int max, int timeout)
       break;
     // read data
     got = read(modem_handle, answer +count, toread);
+
+    if (log_read_timing)
+      writelogfile(LOG_DEBUG, 0, "read, got %i", got);
+
     // if nothing received ...
     if (got<=0)
     {
@@ -768,14 +827,14 @@ int read_from_modem(char *answer, int max, int timeout)
       // 3.1.16beta: Do not sleep if the loop will not continue:
       timeoutcounter++;
       if (timeoutcounter < timeout)
-        usleep_until(time_usec() + 100000);
+      {
+        if (log_read_timing)
+          writelogfile(LOG_DEBUG, 0, "sleeping %i us (%i)", sleep_time, timeoutcounter);
+        usleep_until(time_usec() + sleep_time /*100000*/);
+      }
     }
     else
     {
-      // 3.1.9
-#ifdef DEBUGMSG
-      log_read_from_modem = 1;
-#endif
       if (log_read_from_modem)
       {
         char tmp[SIZE_LOG_LINE];
@@ -837,6 +896,8 @@ int read_from_modem(char *answer, int max, int timeout)
     count += got;
     negotiate_with_telnet(answer, &count);
   }
+
+  free(check_answer);
 
   return success;
 }
@@ -994,7 +1055,7 @@ void do_hangup(char *answer)
 
 		do
 		{
-			read_from_modem(tmpanswer, sizeof(tmpanswer), 2);	// One read attempt is 200ms
+			read_from_modem(tmpanswer, sizeof(tmpanswer), 2);
 
 			// Any answer is ok:
 			if (*tmpanswer)
@@ -1071,6 +1132,25 @@ int handlephonecall_clip(char *answer)
 	return result;
 }
 
+int ignore_unexpected_input(char *answer)
+{
+  int result = 0;
+  char *p;
+
+  if (DEVICE.ignore_unexpected_input[0])
+  {
+    p = DEVICE.ignore_unexpected_input;
+    while (*p && !result)
+    {
+      if (strstr(answer, p))
+        result = 1;
+      p = strchr(p, 0) + 1;
+    }
+  }
+
+  return result;
+}
+
 // 3.1beta7: Not waiting any answer if answer is NULL. Return value is then 1/0.
 // 3.1.5: In case of timeout return value is -2.
 
@@ -1083,7 +1163,7 @@ int put_command(char *command, char *answer, int max, char *timeout_count, char 
 int put_command0(char *command, char *answer, int max, char *timeout_count, char *expect, int silent)
 {
   char loganswer[SIZE_LOG_LINE];
-  int timeoutcounter = 0;
+  time_t start_time; // 3.1.16beta2: Changed timeout counter to use time(0).
   regex_t re;
   int got_timeout = 0;
   int regex_allocated = 0;
@@ -1098,14 +1178,6 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
   if (DEVICE.communication_delay > 0)
     if (last_command_ended)
       usleep_until(last_command_ended +DEVICE.communication_delay *1000);
-
-  // read_timeout is in seconds.
-  // 3.1.16beta:
-  //timeout = DEVICE.read_timeout *10 *timeout_count;
-  if (!timeout_count)
-    timeout = 0;
-  else
-    timeout = DEVICE.read_timeout * 10 * get_read_timeout(timeout_count);
 
   // compile regular expressions
   if (expect && expect[0])
@@ -1122,11 +1194,16 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
   // 3.1.5: Detect and handle routed message. Detect unexpected input.
   if ((DEVICE.incoming && DEVICE.detect_message_routing) || DEVICE.detect_unexpected_input)
   {
+    if (log_read_timing)
+      writelogfile(LOG_DEBUG, 0, "Detecting%s%s",
+                   (DEVICE.incoming && DEVICE.detect_message_routing)? " message_routing" : "",
+                   (DEVICE.detect_unexpected_input)? " unexpected_input" : "");
+
     *loganswer = 0;
     do
     {
       i = strlen(loganswer);
-      read_from_modem(loganswer, sizeof(loganswer), 2);  // One read attempt is 200ms
+      read_from_modem(loganswer, sizeof(loganswer), 2);
     }
     while (strlen(loganswer) > (size_t)i);
 
@@ -1152,7 +1229,8 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
         if (!strstr(loganswer, "+CDSI:") && !strstr(loganswer, "+CMTI:"))
           if (!(strstr(loganswer, "+CLIP:") && DEVICE.phonecalls == 2))
             if (!(strstr(loganswer, "+CREG:") && get_loglevel() >= DEVICE.loglevel_lac_ci)) // 3.1.14.
-              writelogfile(LOG_ERR, DEVICE.unexpected_input_is_trouble, "Unexpected input: %s", loganswer);
+              if (!ignore_unexpected_input(loganswer))  // 3.1.16beta2.
+                writelogfile(LOG_ERR, DEVICE.unexpected_input_is_trouble, "Unexpected input: %s", loganswer);
 
 	if (handlephonecall_clip(loganswer) != 1)
           if (strstr(loganswer, "RING") && DEVICE.phonecalls != 2)
@@ -1192,6 +1270,12 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
     // 3.1.16beta:
     put_command_sent = time_usec();
 
+    // read_timeout is in seconds.
+    if (!timeout_count)
+      timeout = 0;
+    else
+      timeout = DEVICE.read_timeout * get_read_timeout(timeout_count);
+
     if (!silent)
     {
       char tmp[64] = {0};
@@ -1199,18 +1283,29 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
       if (log_response_time)
         snprintf(tmp, sizeof(tmp), "time %i ms ", (int)((put_command_sent - write_started) / 1000));
 
-      writelogfile(LOG_DEBUG, 0, "%sCommand is sent, waiting for the answer. (%i)", tmp, (int)timeout / 10);
+      writelogfile(LOG_DEBUG, 0, "%sCommand is sent, waiting for the answer. (%i)", tmp, timeout);
+    }
+
+    // 3.1.16beta2: Give some time to modem, before start reading (read_delay).
+    if (DEVICE.read_delay > 0)
+    {
+      if (log_read_timing)
+        writelogfile(LOG_DEBUG, 0, "Spending read_delay (%i ms)", DEVICE.read_delay);
+      usleep_until(time_usec() + DEVICE.read_delay * 1000);
     }
 
     // wait for the modem-answer
     answer[0] = 0;
-    timeoutcounter = 0;
     got_timeout = 1;
     last_length = 0;
+    start_time = time(0);
 
     do
     {
-      read_from_modem(answer, max, 2);  // One read attempt is 200ms
+      if (regex_allocated)
+        read_from_modem0(answer, max, 2, &re, expect);
+      else
+        read_from_modem(answer, max, 2);
 
       // check if it's the expected answer
       if (expect && expect[0] && (regexec(&re, answer, (size_t) 0, NULL, 0) == 0))
@@ -1241,18 +1336,15 @@ int put_command0(char *command, char *answer, int max, char *timeout_count, char
       // ------------------------------------------------------------
 
       // 3.1.12: If got something from the modem, do not count timeout:
-      //timeoutcounter += 2;
       i = strlen(answer);
-      if (i == last_length)
-        timeoutcounter += 2;
-      else
+      if (i != last_length)
       {
         last_length = i;
-        timeoutcounter = 0;
+        start_time = time(0);
       }
     }
     // repeat until timeout
-    while (timeoutcounter < timeout);
+    while (time(0) - start_time < timeout);
 
     // 3.1.16beta:
     got_answer = time_usec();
@@ -1453,8 +1545,13 @@ int initmodem(char *new_smsc, int receiving)
   char answer[500];
   int retries=0;
   char *p;
-  char *pre_initstring = "ATE0+CMEE=1\r";
-  char *pre_initstring_clip = "ATE0+CMEE=1;+CLIP=1\r";
+
+  // 3.1.16beta2: added semicolons to pre_initstrings:
+  //char *pre_initstring = "ATE0+CMEE=1\r";
+  //char *pre_initstring_clip = "ATE0+CMEE=1;+CLIP=1\r";
+  char *pre_initstring = "ATE0;+CMEE=1\r";
+  char *pre_initstring_clip = "ATE0;+CMEE=1;+CLIP=1\r";
+
   static int reading_checked = 0;
 
   STATISTICS->last_init = time(0);
@@ -1590,7 +1687,9 @@ int initmodem(char *new_smsc, int receiving)
   //if (pin[0])
   if (strcasecmp(DEVICE.pin, "ignore"))
   {
-    char *cpin_expect = "(READY)|( PIN)|( PUK)|(ERROR)"; // Previously: "(\\+CPIN:.*OK)|(ERROR)"
+    // 3.1.20: Accept OK answer for PIN:
+    //char *cpin_expect = "(READY)|( PIN)|( PUK)|(ERROR)"; // Previously: "(\\+CPIN:.*OK)|(ERROR)"
+    char *cpin_expect = "(OK)|(READY)|( PIN)|( PUK)|(ERROR)";
 
     writelogfile(LOG_INFO, 0, "Checking if modem needs PIN");
     // 3.1.5: timeout from 50 to 100:
@@ -1646,7 +1745,8 @@ int initmodem(char *new_smsc, int receiving)
           alarm_handler0(LOG_ERR, tb);
           abnormal_termination(0);
         }
-        if (strstr(answer,"+CPIN: READY"))
+        // 3.1.20: Accept OK answer for PIN:
+        if (strstr(answer,"+CPIN: READY") || strstr(answer, "OK"))
           writelogfile(LOG_INFO, 0, "PIN Ready");
       }
     }
@@ -1658,10 +1758,11 @@ int initmodem(char *new_smsc, int receiving)
       abnormal_termination(0);
     }
 
-    if (!strstr(answer, "+CPIN: READY"))
+    // 3.1.20: Accept OK answer for PIN:
+    if (!strstr(answer, "+CPIN: READY") && !strstr(answer, "OK"))
     {
       p = get_gsm_error(answer);
-      writelogfile0(LOG_CRIT, 1, tb_sprintf("PIN handling: expected READY, modem answered %s%s%s",
+      writelogfile0(LOG_CRIT, 1, tb_sprintf("PIN handling: expected READY or OK, modem answered %s%s%s",
         change_crlf(cut_emptylines(cutspaces(answer)), ' '), (*p)? ", " : "", p));
       alarm_handler0(LOG_CRIT, tb);
       abnormal_termination(0);
@@ -1791,26 +1892,29 @@ int initmodem(char *new_smsc, int receiving)
   if (terminate)
     return 7;
 
-  writelogfile(LOG_INFO, 0, "Selecting PDU mode");
-  strcpy(command,"AT+CMGF=0\r");
-  retries=0;
-  do
+  if (DEVICE.select_pdu_mode)   // 3.1.16beta2.
   {
-    retries++;
-    put_command(command, answer, sizeof(answer), "cmgf", EXPECT_OK_ERROR);
-    if (!strstr(answer, "OK"))
-      if (retries < 2)
-        if (t_sleep(errorsleeptime))
-          return 7;
-  }
-  while (retries < 2 && !strstr(answer,"OK"));
-  if (strstr(answer,"ERROR"))
-  {
-    // 3.1: more detailed error message:
-    p = get_gsm_error(answer);
-    writelogfile0(LOG_ERR, 1, tb_sprintf("Error: Modem did not accept mode selection%s%s", (*p)? ", " : "", p));
-    alarm_handler0(LOG_ERR, tb);
-    return 5;
+    writelogfile(LOG_INFO, 0, "Selecting PDU mode");
+    strcpy(command,"AT+CMGF=0\r");
+    retries=0;
+    do
+    {
+      retries++;
+      put_command(command, answer, sizeof(answer), "cmgf", EXPECT_OK_ERROR);
+      if (!strstr(answer, "OK"))
+        if (retries < 2)
+          if (t_sleep(errorsleeptime))
+            return 7;
+    }
+    while (retries < 2 && !strstr(answer,"OK"));
+    if (strstr(answer,"ERROR"))
+    {
+      // 3.1: more detailed error message:
+      p = get_gsm_error(answer);
+      writelogfile0(LOG_ERR, 1, tb_sprintf("Error: Modem did not accept mode selection%s%s", (*p)? ", " : "", p));
+      alarm_handler0(LOG_ERR, tb);
+      return 5;
+    }
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -1992,11 +2096,25 @@ int initmodem(char *new_smsc, int receiving)
 
 int initialize_modem_sending(char *new_smsc)
 {
+  // 3.1.17: Check if modem is disabled here, and log it:
+  if (DEVICE.modem_disabled)
+  {
+    writelogfile(LOG_DEBUG, 0, "initialize_modem_sending");
+    return 0;
+  }
+
   return initmodem(new_smsc, 0);
 }
 
 int initialize_modem_receiving()
 {
+  // 3.1.17: Check if modem is disabled here, and log it:
+  if (DEVICE.modem_disabled)
+  {
+    writelogfile(LOG_DEBUG, 0, "initialize_modem_receiving");
+    return 0;
+  }
+
   return initmodem("", 1);
 }
 
@@ -2180,6 +2298,52 @@ int openmodem()
   return modem_handle;
 }
 
+int test_openmodem()
+{
+  int result = 1;
+  int save_device_open_retries = DEVICE.device_open_retries;
+  int save_socket_connection_retries = DEVICE.socket_connection_retries;
+
+  DEVICE.device_open_retries = 0;
+  DEVICE.socket_connection_retries = 0;
+
+  try_closemodem(1);
+
+  if (openmodem() < 0)
+    result = 0;
+
+  try_closemodem(1);
+
+  DEVICE.device_open_retries = save_device_open_retries;
+  DEVICE.socket_connection_retries = save_socket_connection_retries;
+
+  return result;
+}
+
+void show_a_commands()
+{
+  int i;
+
+  for (i = 0; i < COMMUNICATE_A_KEY_COUNT; i++)
+  {
+    if (communicate_a_keys[i][0])
+    {
+      printf("Alt shortcuts:\n");
+
+      while (i < COMMUNICATE_A_KEY_COUNT)
+      {
+        if (communicate_a_keys[i][0])
+          printf("Alt-%i = %s\n", i, communicate_a_keys[i]);
+
+        i++;
+      }
+      printf("-- \n");
+      fflush(stdout);
+      break;
+    }
+  }
+}
+
 int talk_with_modem()
 {
   int result = 0;
@@ -2214,10 +2378,9 @@ int talk_with_modem()
 
   printf("Communicating with %s. ( Press Ctrl-C to abort. )\n", process_title);
 
-  if (!arg_ctrlz)
-    printf("( If you need to send Ctrl-Z, change the suspend character first, like stty susp \\^N )\n");
-  else
-    printf("( Character which sends Ctrl-Z: %c )\n", arg_ctrlz);
+  // 3.1.20: Ctrl-Z can be sent with Alt-Z:
+  //printf("( If you need to send Ctrl-Z, change the suspend character first, like stty susp \\^N )\n");
+  printf("( If you need to send Ctrl-Z, use Alt-Z )\n");
 
   writelogfile(LOG_CRIT, 0, "Communicating with terminal.");
 
@@ -2229,8 +2392,8 @@ int talk_with_modem()
   {
     idle = 0;
 
-    // 3.1.16beta: Automatically set echo on when talking with modem.
-    if (modem_handle != -1 && !echo_on)
+    // 3.1.16beta: Automatically set echo on when talking with modem. 3.1.16beta2: Not with network modems which may require login and/or password.
+    if (!DEVICE_IS_SOCKET && modem_handle != -1 && !echo_on)
     {
       write_to_modem("ATE1\r", 5, 0, 1);
       echo_on = 1;
@@ -2242,11 +2405,22 @@ int talk_with_modem()
       {
         tmp[n] = 0;
 
-        // 3.1.16beta: Use arg_ctrlz if defined:
-        if (arg_ctrlz && *tmp == arg_ctrlz)
-          *tmp = 0x1A;
+        // 3.1.20: Handle Alt-0...9, Alt-Z and Alt-?:
+        if (n == 2 && tmp[0] == 0x1B)
+        {
+          if (tmp[1] >= 0x30 && tmp[1] <= 0x39)
+            strcpy(tmp, communicate_a_keys[tmp[1] - 0x30]);
+          else if (tmp[1] == 0x5A || tmp[1] == 0x7A)
+            sprintf(tmp, "%c", 0x1A);
+          else if (tmp[1] == 0x3F)
+          {
+            show_a_commands();
+            *tmp = 0;
+          }
+        }
 
-        write_to_modem(tmp, 5, 0, 1);
+        if (*tmp)
+          write_to_modem(tmp, 5, 0, 1);
       }
       else
       {
@@ -2265,6 +2439,12 @@ int talk_with_modem()
           }
           setmodemparams();
           printf("Ready.\n");
+
+          // 3.1.20: Show Alt commands if any defined:
+          show_a_commands();
+
+          fflush(stdout);
+
           result = 1;
         }
         else if (*tmp)

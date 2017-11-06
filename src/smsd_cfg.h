@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -19,6 +18,7 @@ Either version 2 of the License, or (at your option) any later version.
 #include <limits.h>
 #include <sys/types.h>
 #include <time.h>
+#include <signal.h>
 
 #ifndef __FreeBSD__
 #define DEFAULT_CONFIGFILE "/etc/smsd.conf"
@@ -30,12 +30,20 @@ Either version 2 of the License, or (at your option) any later version.
 #define LOGTIME_DEFAULT "%Y-%m-%d %H:%M:%S"
 #define DATE_FILENAME_DEFAULT "%Y-%m-%d"
 
+#define POLL_FASTER_DEFAULT 5
+
 #define CONCATENATED_DIR_FNAME "%s/%s-concatenated"
 
 #define MM_CORE_FNAME "/tmp/mm_smsd_%i" /* %i is PID */
 
 #define NUMS 64
 #define SIZE_NUM 16
+
+// 3.1.18: Definitions for process_id's:
+#define PROCESS_ID_MAINPROCESS -1
+#define PROCESS_ID_NOTIFIER -2
+#define PROCESS_ID_CHILD -3
+#define PROCESS_IS_MODEM (process_id >= 0)
 
 #define DEVICE devices[process_id]
 #define DEVICE_IS_SOCKET (devices[process_id].device[0] == '@')
@@ -74,6 +82,8 @@ Either version 2 of the License, or (at your option) any later version.
 // 3.1.12: Changed size from 16384 when CMGL* method is used:
 #define SIZE_CHECK_MEMORY_BUFFER_CMGL 65536
 
+#define SIZE_IGNORE_UNEXPECTED_INPUT 512
+
 // Check memory methods:
 #define CM_NO_CPMS 0
 #define CM_S_NO_CPMS "Fixed values are used because CPMS does not work."
@@ -108,9 +118,17 @@ Either version 2 of the License, or (at your option) any later version.
 #define isdigitc(ch) isdigit((int)(ch))
 #define isalnumc(ch) isalnum((int)(ch))
 
-char process_title[32];         // smsd for main task, name of a modem for other tasks.
-int process_id;                 // -1 for main task, all other have numbers starting with 0.
-                                // This is the same as device, can be used like devices[process_id]...
+#define ALPHABET_GSM            -1
+#define ALPHABET_ISO            0
+#define ALPHABET_BINARY         1
+#define ALPHABET_UCS2           2
+#define ALPHABET_UTF8           3
+#define ALPHABET_UNKNOWN        4
+#define ALPHABET_DEFAULT        0
+
+char process_title[32];         // smsd for main task, NOTIFIER or CHILD, name of a modem for other tasks.
+int process_id;                 // -1 for main task, all modems have numbers starting with 0.
+                                // This is the same as device, can be used like devices[process_id] if IS_MODEM_PROCESS.
 
 time_t process_start_time;
 
@@ -138,7 +156,6 @@ typedef struct
   char identity[SIZE_IDENTITY]; // Identification asked from the modem (CIMI)
   char imei[SIZE_IDENTITY]; 	// 3.1.16beta: IMEI asked from the modem (CGSN)
   char conf_identity[SIZE_IDENTITY]; // Identification set in the conf file (CIMI)
-  //char identity_header[SIZE_TO];// Title of current identification (IMSI)
   char queues[NUMBER_OF_MODEMS][32]; // Assigned queues
   int incoming; 		// Try to receive SMS. 0=No, 1=Low priority, 2=High priority
   int outgoing;                 // = 0 if a modem is not used to send messages.
@@ -154,6 +171,7 @@ typedef struct
   int send_delay;		// Makes sending characters slower (milliseconds)
   int send_handshake_select;    // 3.1.9.
   int cs_convert; 		// Convert character set  0 or 1 (iso-9660)
+  int cs_convert_optical;       // 3.1.16beta2.
   char initstring[100];		// first Init String
   char initstring2[100];        // second Init String
   char eventhandler[PATH_MAX];	// event handler program or script
@@ -166,9 +184,7 @@ typedef struct
   int secondary_memory_max;     // max value for secondary memory, if dual-memory handler is used and modem does not tell correct max value
   char pdu_from_file[PATH_MAX]; // for testing purposes: incoming pdu can be read from file if this is set.
   int sending_disabled;         // 1 = do not actually send a message. For testing purposes.
-  int modem_disabled;           // 1 = disables modem handling. For testing purposes. Outgoing side acts like with sending_disabled,
-                                // incoming side reads messages only from file (if defined). NOTE: device name should still be defined
-                                // as it's opened and closed. You can use some regular file for this. Must be an existing file.
+  int modem_disabled;           // 1 = disables modem handling. For testing purposes.
   int decode_unicode_text;      // 1 if unicode text is decoded internally.
   int internal_combine;         // 1 if multipart message is combined internally.
   int internal_combine_binary;  // 1 if multipart binary message is combined internally. Defaults to internal_combine.
@@ -176,16 +192,17 @@ typedef struct
   int check_network;            // 0 if a modem does not support AT+CREG command.
   char admin_to[SIZE_TO];       // Destination number for administrative messages.
   int message_limit;            // Limit counter for outgoing messages. 0 = no limit.
-  int message_count_clear;      // Period to automatically clear message counter. Value is MINUTES. 
+  int message_count_clear;      // Period to automatically clear message counter. Value is MINUTES.
   int keep_open;                // 1 = do not close modem while idle.
   char dev_rr[PATH_MAX];        // Script/program which is run regularly.
   char dev_rr_post_run[PATH_MAX]; // 3.1.7: Script/program which is run regularly (POST_RUN).
   int dev_rr_interval;          // Number of seconds between running a regular_run script/progdam.
-  char dev_rr_cmdfile[PATH_MAX];// 
+  char dev_rr_cmdfile[PATH_MAX];//
   char dev_rr_cmd[SIZE_RR_CMD]; //
   char dev_rr_logfile[PATH_MAX];
   int dev_rr_loglevel; // defaults to 5, LOG_NOTICE. Has only effect when a main log is used.
   char dev_rr_statfile[PATH_MAX];
+  int dev_rr_keep_open;         // 3.1.16beta2.
   char logfile[PATH_MAX];       // Name or Handle of Log File
   int loglevel;                 // Log Level (9=highest). Verbosity of log file.
   int messageids;               // Defines how message id's are stored: 1 = first, 2 = last (default), 3 = all.
@@ -240,6 +257,23 @@ typedef struct
   int log_not_registered_after; // 3.1.14.
   int send_retries; // 3.1.16beta.
   int report_read_timeouts; // 3.1.16beta.
+  int select_pdu_mode; // 3.1.16beta2.
+  char ignore_unexpected_input[SIZE_IGNORE_UNEXPECTED_INPUT]; // 3.1.16beta2.
+  int national_toa_unknown; // 3.1.16beta2.
+  int reply_path; // 3.1.16beta2.
+  char description[64]; // 3.1.16beta2.
+  char text_is_pdu_key[SIZE_TO]; // 3.1.16beta2.
+  int sentsleeptime; // 3.1.16beta2.
+  int poll_faster; // 3.1.16beta2.
+  int read_delay; // 3.1.16beta2. milliseconds
+  int language; //3.1.16beta2.
+  int language_ext; //3.1.16beta2.
+  int notice_ucs2; // 3.1.16beta2.
+  int receive_before_send; // 3.1.17. Now also a modem setting.
+  int delaytime; // 3.1.18.
+  int delaytime_random_start; // 3.1.18.
+  int read_identity_after_suspend; // 3.1.18.
+  int read_configuration_after_suspend; // 3.1.18.
 } _device;
 
 // NOTE for regular run intervals: effective value is at least delaytime.
@@ -247,11 +281,15 @@ typedef struct
 char configfile[PATH_MAX];	// Path to config file
 char d_spool[PATH_MAX];		// Spool directory
 char d_failed[PATH_MAX];	// Failed spool directory
+char d_failed_copy[PATH_MAX];	// 3.1.17.
 char d_incoming[PATH_MAX];	// Incoming spool directory
+char d_incoming_copy[PATH_MAX]; // 3.1.16beta2.
 char d_report[PATH_MAX];	// Incoming report spool directory
+char d_report_copy[PATH_MAX];	// 3.1.17.
 char d_phonecalls[PATH_MAX];    // Incoming phonecalls data directory
 char d_saved[PATH_MAX];         // Directory for smsd's internal use, concatenation storage files etc.
 char d_sent[PATH_MAX];		// Sent spool directory
+char d_sent_copy[PATH_MAX];	// 3.1.17.
 char d_checked[PATH_MAX];	// Spool directory for checked messages (only used when no provider queues used)
 char eventhandler[PATH_MAX];	// Global event handler program or script
 char alarmhandler[PATH_MAX];	// Global alarm handler program or script
@@ -333,12 +371,39 @@ int spool_directory_order;
 // 3.1.9: 1 if read_from_modem is logged.
 int log_read_from_modem;
 
+// 3.1.16beta2: log_read_timing for performance tuning.
+int log_read_timing;
+
 // 3.1.16beta:
 int log_response_time;
 
+// 3.1.16beta2:
+int default_alphabet;
+
+// 3.1.17: Child process for the mainprocess:
+char mainprocess_child[PATH_MAX];
+char mainprocess_child_args[PATH_MAX];
+
+// 3.1.17: Notifier for the mainprocess:
+int mainprocess_notifier;
+
+// 3.1.17: If *_copy was made, evenhandler can use it instead of original file:
+int eventhandler_use_copy;
+
+// 3.1.17: This defines how long to sleep while looping:
+int sleeptime_mainprocess;
+
+// 3.1.17: Defines how often PID is checked to detect if another smsd is running:
+int check_pid_interval;
+
+// 3.1.18: start script/program for mainprocess:
+char mainprocess_start[PATH_MAX];
+char mainprocess_start_args[PATH_MAX];
+
 int message_count;              // Counter for sent messages. Multipart message is one message.
 
-int terminate;                  // The current process terminates if this is 1
+volatile sig_atomic_t break_workless_delay; // To break the delay when SIGCONT is received.
+volatile sig_atomic_t terminate; // To terminate when SIGTERM is received.
 
 char username[65];              // user and group name which are used to run.
 char groupname[65];             // (max length is just a guess)
@@ -408,7 +473,9 @@ int shell_test;
 int enable_smsd_debug;
 char smsd_debug[SIZE_SMSD_DEBUG]; // Header of an outgoing message file.
 
-char arg_ctrlz; // 3.1.16beta. Character to use as Ctrl-Z in communication mode.
+// 3.1.20: Alt keys in communication mode:
+#define COMMUNICATE_A_KEY_COUNT 10
+char communicate_a_keys[COMMUNICATE_A_KEY_COUNT][256];
 
 /* initialize all variable with default values */
 
@@ -446,5 +513,7 @@ void abnormal_termination(int all);
 char *tb_sprintf(char* format, ...);
 
 int savephonecall(char *entry_number, int entry_type, char *entry_text);
+
+int refresh_configuration();
 
 #endif

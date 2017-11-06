@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -236,8 +235,8 @@ void writelogfile(int severity, int trouble, char* format, ...)
         }
 
         // Global process_id is the same as int device in many functions calls.
-        if (process_id >= 0)
-          statistics[process_id]->status = 't';
+        if (PROCESS_IS_MODEM)
+          STATISTICS->status = 't';
 
         // 3.1.16beta: Mark the start of trouble (not when a process is starting, value 2):
         if (trouble == 1)
@@ -339,4 +338,62 @@ void flush_smart_logging()
     free(trouble_logging_buffer);
     trouble_logging_buffer = 0;
   }
+}
+
+// ******************************************************************************
+// Collect character conversion log, flush it if called with format==NULL.
+// Also prints to the stdout, if debugging.
+void logch(char* format, ...)
+{
+  va_list argp;
+  char text[2048];
+  int flush = 0;
+
+  if (format)
+  {
+    va_start(argp, format);
+    vsnprintf(text, sizeof(text), format, argp);
+    va_end(argp);
+
+    if (strlen(logch_buffer) +strlen(text) < sizeof(logch_buffer))
+    {
+      sprintf(strchr(logch_buffer, 0), "%s", text);
+      // Line wrap after space character:
+      // Outgoing conversion:
+      if (strlen(text) >= 3)
+        if (strcmp(text +strlen(text) -3, "20 ") == 0)
+          flush = 1;
+      // Incoming conversion:
+      if (!flush)
+        if (strlen(text) >= 6)
+          if (strcmp(text +strlen(text) -6, "20[ ] ") == 0)
+            flush = 1;
+      // Line wrap after a reasonable length reached:
+      if (!flush)
+        if (strlen(logch_buffer) > 80)
+          flush = 1;
+    }
+#ifdef DEBUGMSG
+  printf("%s", text);
+#endif
+  }
+  else
+    flush = 1;
+
+  if (flush)
+  {
+    if (*logch_buffer)
+      writelogfile(LOG_DEBUG, 0, "charconv: %s", logch_buffer);
+    *logch_buffer = 0;
+#ifdef DEBUGMSG
+  printf("\n");
+#endif
+  }
+}
+
+char prch(char ch)
+{
+  if ((unsigned char)ch >= ' ')
+    return ch;
+  return '.';
 }

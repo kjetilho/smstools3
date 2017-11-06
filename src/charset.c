@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -19,15 +18,13 @@ Either version 2 of the License, or (at your option) any later version.
 #include <stdarg.h>
 #include <syslog.h>
 #include <ctype.h>
-#ifdef USE_ICONV
-#include <iconv.h>
-#include <errno.h>
-#endif
+
 #include "charset.h"
 #include "logging.h"
 #include "smsd_cfg.h"
 #include "pdu.h"
 #include "extras.h"
+#include "charshift.h"
 
 // For incoming character 0x24 conversion:
 // Change this if other than Euro character is wanted, like '?' or '$'.
@@ -300,15 +297,13 @@ char iso_8859_15_chars[] = {
 	0   , 0
 };
 
-#ifdef USE_ICONV
-static iconv_t iconv4ucs;	// UCS2->UTF8 descriptor
-static iconv_t iconv2ucs;	// UTF8->UCS2 descriptor
-#endif
-
 int special_char2gsm(char ch, char *newch)
 {
   int table_row = 0;
   char *table = iso_8859_15_chars;
+
+  if (!DEVICE.cs_convert_optical)
+    return 0;
 
   while (table[table_row *2])
   {
@@ -392,18 +387,27 @@ int gsm2char(char ch, char *newch, int which_table)
   return 0;
 }
 
-int iso_utf8_2gsm(char* source, int size, char* destination, int max)
+int iso_utf8_2gsm(char* source, int size, char* destination, int max, int *missing, char **notice)
 {
-  int source_count=0;
-  int dest_count=0;
-  int found=0;
+  int source_count = 0;
+  int char_count = 0;
+  int dest_count = 0;
+  int found;
   char newch;
   char logtmp[51];
   char tmpch;
+  int bytes;
+  unsigned char ch;
+  char utf8bytes[32];
+  char utf8char[16];
+  int i;
 
-  destination[dest_count]=0;
-  if (source==0 || size <= 0)
+  destination[dest_count] = 0;
+  if (source == 0 || size <= 0)
     return 0;
+
+  if (missing)
+    *missing = 0;
 
 #ifdef DEBUGMSG
   log_charconv = 1;
@@ -417,147 +421,46 @@ int iso_utf8_2gsm(char* source, int size, char* destination, int max)
   }
 
   // Convert each character until end of string
-  while (source_count<size && dest_count<max)
+  while (source_count < size && dest_count < max)
   {
-    found = char2gsm(source[source_count], &newch);
-    if (found == 2)
+    *utf8bytes = 0;
+    *utf8char = 0;
+    ch = source[source_count];
+
+    if (outgoing_utf8)
     {
-      if (dest_count >= max -2)
-        break;
-      destination[dest_count++] = 0x1B;
+      // 3.1.20: Fix: Should still accept ISO character too. If not proper UTF-8 sequence is detected, use the char as it is.
+      if ((bytes = utf8_to_iso_char(&source[source_count], &ch)) <= 0)
+      {
+        ch = source[source_count];
+        bytes = 1;
+      }
+
+      strcpy(utf8bytes, "(");
+      for (i = 0; i < bytes; i++)
+      {
+        sprintf(strchr(utf8bytes, 0), "%02X", (unsigned char)source[source_count +i]);
+        sprintf(strchr(utf8char, 0), "%c", (unsigned char)source[source_count +i]);
+      }
+      strcat(utf8bytes, ")");
+
+      source_count += bytes;
     }
-    if (found >= 1)
+    else
+      source_count++;
+
+    char_count++;
+    found = 0;
+
+    if (DEVICE.cs_convert_optical)
     {
-      destination[dest_count++] = newch;
-      if (log_charconv)
-      {
-        sprintf(logtmp, "%02X[%c]", (unsigned char)source[source_count], prch(source[source_count]));
-        if (found > 1 || source[source_count] != newch)
-        {
-          sprintf(strchr(logtmp, 0), "->%s%02X", (found == 2)? "Esc-" : "", (unsigned char)newch);
-          if (gsm2char(newch, &tmpch, found))
-            sprintf(strchr(logtmp, 0), "[%c]", tmpch);
-        }
-        logch("%s ", logtmp);
-      }
-    }
-
-    if (found == 0 && outgoing_utf8)
-    {
-      // ASCII and UTF-8 table: http://members.dslextreme.com/users/kkj/webtools/ascii_utf8_table.html
-      // Good converter: http://www.macchiato.com/unicode/convert.html
-      unsigned int c;
-      int iterations = 0;
-      // 3.1beta7: If UTF-8 decoded character is not found from tables, decoding is ignored:
-      int saved_source_count = source_count;
-      char sourcechars[51];
-
-      c = source[source_count];
-      if (log_charconv)
-        sprintf(sourcechars, "%02X", (unsigned char)source[source_count]);
-
-      // 3.1beta7: Check if there is enough characters left.
-      // Following bytes in UTF-8 should begin with 10xx xxxx
-      // which means 0x80 ... 0xBF
-      if (((c & 0xFF) >= 0xC2 && (c & 0xFF) <= 0xC7) ||
-          ((c & 0xFF) >= 0xD0 && (c & 0xFF) <= 0xD7))
-      {
-        if (source_count < size -1 && 
-            (source[source_count +1] & 0xC0) == 0x80)
-        {
-          // 110xxxxx
-          c &= 0x1F;
-          iterations = 1;
-        }
-      }
-      else if ((c & 0xFF) >= 0xE0 && (c & 0xFF) <= 0xE7)
-      {
-        if (source_count < size -2 && 
-            (source[source_count +1] & 0xC0) == 0x80 &&
-            (source[source_count +2] & 0xC0) == 0x80)
-        {
-          // 1110xxxx
-          c &= 0x0F;
-          iterations = 2;
-        }
-      }
-      else if ((c & 0xFF) >= 0xF0 && (c & 0xFF) <= 0xF4)
-      {
-        if (source_count < size -3 && 
-            (source[source_count +1] & 0xC0) == 0x80 &&
-            (source[source_count +2] & 0xC0) == 0x80 &&
-            (source[source_count +3] & 0xC0) == 0x80)
-        {
-          // 11110xxx
-          c &= 0x07;
-          iterations = 3;
-        }
-      }
-
-      if (iterations > 0)
-      {
-        int i;
-
-        for (i = 0; i < iterations; i++)
-        {
-          c = (c << 6) | (source[++source_count] -0x80);
-          if (log_charconv)
-            sprintf(strchr(sourcechars, 0), "%02X", (unsigned char)source[source_count]);
-        }
-
-        // Euro character is 20AC in UTF-8, but A4 in ISO-8859-15:
-        if ((c & 0xFF) == 0xAC)
-          c = 0xA4;
-
-        found = char2gsm((char)c, &newch);
-        if (found == 2)
-        {
-          if (dest_count >= max -2)
-            break;
-          destination[dest_count++] = 0x1B;
-        }
-        if (found >= 1)
-        {
-          destination[dest_count++] = newch;
-          if (log_charconv)
-          {
-            sprintf(logtmp, "%s(%02X[%c])->%s%02X", sourcechars, (unsigned char)c, prch(c),
-                    (found == 2)? "Esc-" : "", (unsigned char)newch);
-            if (gsm2char(newch, &tmpch, found))
-              sprintf(strchr(logtmp, 0), "[%c]", tmpch);
-            logch("%s ", logtmp);
-          }
-        }
-        else
-        {
-          found = special_char2gsm((char)c, &newch);
-          if (found)
-          {
-            destination[dest_count++] = newch;
-            if (log_charconv)
-            {
-              sprintf(logtmp, "%s(%02X[%c])~>%02X", sourcechars, (unsigned char)c, prch(c), (unsigned char)newch);
-              if (gsm2char(newch, &tmpch, 1))
-                sprintf(strchr(logtmp, 0), "[%c]", tmpch);
-              logch("%s ", logtmp);
-            }
-          }
-          else
-            source_count = saved_source_count;
-        }
-      }
-    }
-
-    // 3.1beta7: Try additional table:
-    if (found == 0)
-    {
-      found = special_char2gsm(source[source_count], &newch);
+      found = special_char2gsm(ch, &newch);
       if (found)
       {
         destination[dest_count++] = newch;
         if (log_charconv)
         {
-          sprintf(logtmp, "%02X[%c]~>%02X", (unsigned char)source[source_count], prch(source[source_count]), (unsigned char)newch);
+          sprintf(logtmp, "%s%02X[%c]~>%02X", utf8bytes, ch, prch(ch), (unsigned char)newch);
           if (gsm2char(newch, &tmpch, 1))
             sprintf(strchr(logtmp, 0), "[%c]", tmpch);
           logch("%s ", logtmp);
@@ -565,24 +468,56 @@ int iso_utf8_2gsm(char* source, int size, char* destination, int max)
       }
     }
 
-    if (found==0)
+    if (!found)
     {
-      writelogfile0(LOG_NOTICE, 0,
-        tb_sprintf("Cannot convert %i. character %c 0x%2X to GSM, you might need to update the translation tables.",
-        source_count +1, source[source_count], source[source_count]));
+      found = char2gsm(ch, &newch);
+
+      if (found == 2)
+      {
+        if (dest_count >= max -2)
+          break;
+        destination[dest_count++] = 0x1B;
+      }
+
+      if (found >= 1)
+      {
+        destination[dest_count++] = newch;
+        if (log_charconv)
+        {
+          sprintf(logtmp, "%s%02X[%c]", utf8bytes, ch, prch(ch));
+          if (found > 1 || ch != newch)
+          {
+            sprintf(strchr(logtmp, 0), "->%s%02X", (found == 2)? "Esc-" : "", (unsigned char)newch);
+            if (gsm2char(newch, &tmpch, found))
+              sprintf(strchr(logtmp, 0), "[%c]", tmpch);
+          }
+          logch("%s ", logtmp);
+        }
+      }
+    }
+
+    if (!found)
+    {
+      if (missing)
+        (*missing)++;
+
+      tb_sprintf("NOTICE: Cannot convert %i. character %s%s to GSM.", char_count, utf8bytes, utf8char);
+      writelogfile0(LOG_NOTICE, 0, tb + 8);
+      if (notice)
+        strcat_realloc(notice, tb, "\n");
+
 #ifdef DEBUGMSG
   printf("%s\n", tb);
 #endif
     }
-
-    source_count++;
   }
 
   if (log_charconv)
     logch(NULL);
 
   // Terminate destination string with 0, however 0x00 are also allowed within the string.
-  destination[dest_count]=0;
+  destination[dest_count] = 0;
+
   return dest_count;
 }
 
@@ -596,6 +531,7 @@ int iso2utf8_file(FILE *fp, char *ascii, int userdatalength)
   int len;
   char logtmp[51];
   int i;
+  char ucs2[2];
 
   if (!fp || userdatalength < 0)
     return -1;
@@ -613,32 +549,43 @@ int iso2utf8_file(FILE *fp, char *ascii, int userdatalength)
 
   for (idx = 0; idx < userdatalength; idx++)
   {
-    len = 0;
-    c = ascii[idx] & 0xFF;
-    // Euro character is 20AC in UTF-8, but A4 in ISO-8859-15:
-    if (c == 0xA4)
-      c = 0x20AC;
+    c = (unsigned char)ascii[idx];
 
-    if (c <= 0x7F)
-      tmp[len++] = (char)c;
-    else if (c <= 0x7FF)
+    if (c >= 0x81 && c <= 0x8A)
     {
-      tmp[len++] = (char)( 0xC0 | ((c >> 6) & 0x1F) );
-      tmp[len++] = (char)( 0x80 | (c & 0x3F) );
+      ucs2[0] = 0x03;
+      switch (c)
+      {
+        case 0x81: ucs2[1] = 0x94; break;
+        case 0x82: ucs2[1] = 0xA6; break;
+        case 0x83: ucs2[1] = 0x93; break;
+        case 0x84: ucs2[1] = 0x9B; break;
+        case 0x85: ucs2[1] = 0xA9; break;
+        case 0x86: ucs2[1] = 0xA0; break;
+        case 0x87: ucs2[1] = 0xA8; break;
+        case 0x88: ucs2[1] = 0xA3; break;
+        case 0x89: ucs2[1] = 0x98; break;
+        case 0x8A: ucs2[1] = 0x9E; break;
+      }
     }
-    else if (c <= 0x7FFF) // or <= 0xFFFF ?
+    else
     {
-      tmp[len++] = (char)( 0xE0 | ((c >> 12) & 0x0F) );
-      tmp[len++] = (char)( 0x80 | ((c >> 6) & 0x3F) );
-      tmp[len++] = (char)( 0x80 | (c & 0x3F) );
+      // Euro character is E282AC in UTF-8, 20AC in UCS-2, but A4 in ISO-8859-15:
+      if (c == 0xA4)
+        c = 0x20AC;
+
+      ucs2[0] = (unsigned char)((c & 0xFF00) >> 8);
+      ucs2[1] = (unsigned char)(c & 0xFF);
     }
+
+    len = ucs2_to_utf8_char(ucs2, tmp);
 
     if (len == 0)
     {
       if (log_charconv)
         logch(NULL);
       writelogfile0(LOG_NOTICE, 0,
-        tb_sprintf("UTF-8 conversion error with %i. ch 0x%2X %c.", idx +1, c, (char)c));
+        tb_sprintf("UTF-8 conversion error with %i. ch 0x%02X %c.", idx +1, c, (char)c));
 #ifdef DEBUGMSG
   printf("%s\n", tb);
 #endif
@@ -701,7 +648,7 @@ int gsm2iso(char* source, int size, char* destination, int max)
       else
       {
         writelogfile0(LOG_NOTICE, 0,
-          tb_sprintf("Cannot convert GSM character 0x%2X to ISO, you might need to update the 1st translation table.",
+          tb_sprintf("Cannot convert GSM character 0x%02X to ISO, you might need to update the 1st translation table.",
           source[source_count]));
 #ifdef DEBUGMSG
   printf("%s\n", tb);
@@ -716,7 +663,7 @@ int gsm2iso(char* source, int size, char* destination, int max)
       else
       {
         writelogfile0(LOG_NOTICE, 0,
-          tb_sprintf("Cannot convert extended GSM character 0x1B 0x%2X, you might need to update the 2nd translation table.",
+          tb_sprintf("Cannot convert extended GSM character 0x1B 0x%02X, you might need to update the 2nd translation table.",
           source[source_count]));
 #ifdef DEBUGMSG
   printf("%s\n", tb);
@@ -730,99 +677,44 @@ int gsm2iso(char* source, int size, char* destination, int max)
   return dest_count;
 }
 
-#ifndef USE_ICONV
 int decode_ucs2(char *buffer, int len)
 {
   int i;
   char *d = buffer;
-  int j;
+  unsigned char *s = (unsigned char *)buffer;
 
-  for (i = 0; i < len; )
+  for (i = 0; i < len; i += 2)
   {
-    switch (wctomb(d +i, (*(buffer +i) << 8 | *(buffer +i +1))))
-    {
-      case 2:
-        i += 2;
-        break;
-
-      default:
-        *(d +i) = *(buffer +i +1);
-        d--;
-        i += 2;
-        break;
-    }
+    if (!s[i])
+      *(d++) = s[i +1];
+    else if (s[i] == 0x20 && s[i +1] == 0xAC)
+      *(d++) = 0xA4;
+    else if (s[i] == 0x01 && s[i +1] == 0x60)
+      *(d++) = 0xA6;
+    else if (s[i] == 0x01 && s[i +1] == 0x61)
+      *(d++) = 0xA8;
+    else if (s[i] == 0x01 && s[i +1] == 0x7D)
+      *(d++) = 0xB4;
+    else if (s[i] == 0x01 && s[i +1] == 0x7E)
+      *(d++) = 0xB8;
+    else if (s[i] == 0x01 && s[i +1] == 0x52)
+      *(d++) = 0xBC;
+    else if (s[i] == 0x01 && s[i +1] == 0x53)
+      *(d++) = 0xBD;
+    else if (s[i] == 0x01 && s[i +1] == 0x78)
+      *(d++) = 0xBE;
+    else
+      writelogfile(LOG_NOTICE, 0,
+        "Cannot convert UCS2 character 0x%02X 0x%02X to ISO-8859-15. Consider using incoming_utf8 = yes.",
+        s[i], s[i +1]);
   }
-  i = (d -buffer) +len;
-  *(buffer +i) = '\0';
 
-  // 3.1.6: Fix euro character(s):
-  for (j = 0; buffer[j]; j++)
-    if (buffer[j] == (char) 0xAC)
-      buffer[j] = (char) 0xA4;
+  *d = '\0';
+  i = d - buffer;
 
   return i;
 }
-#endif
 
-// ******************************************************************************
-// Collect character conversion log, flush it if called with format==NULL.
-// Also prints to the stdout, if debugging.
-void logch(char* format, ...)
-{
-  va_list argp;
-  char text[2048];
-  int flush = 0;
-
-  if (format)
-  {
-    va_start(argp, format);
-    vsnprintf(text, sizeof(text), format, argp);
-    va_end(argp);
-
-    if (strlen(logch_buffer) +strlen(text) < sizeof(logch_buffer))
-    {
-      sprintf(strchr(logch_buffer, 0), "%s", text);
-      // Line wrap after space character:
-      // Outgoing conversion:
-      if (strlen(text) >= 3)
-        if (strcmp(text +strlen(text) -3, "20 ") == 0)
-          flush = 1;
-      // Incoming conversion:
-      if (!flush)
-        if (strlen(text) >= 6)
-          if (strcmp(text +strlen(text) -6, "20[ ] ") == 0)
-            flush = 1;
-      // Line wrap after a reasonable length reached:
-      if (!flush)
-        if (strlen(logch_buffer) > 80)
-          flush = 1;
-    }
-#ifdef DEBUGMSG
-  printf("%s", text);
-#endif
-  }
-  else
-    flush = 1;
-
-  if (flush)
-  {
-    if (*logch_buffer)
-      writelogfile(LOG_DEBUG, 0, "charconv: %s", logch_buffer);
-    *logch_buffer = 0;
-#ifdef DEBUGMSG
-  printf("\n");
-#endif
-  }
-}
-
-char prch(char ch)
-{
-  if ((unsigned char)ch >= ' ')
-    return ch;
-  return '.';
-}
-
-//hdr --------------------------------------------------------------------------------
 int iso2utf8(
 	//
 	// Converts to the buffer. Returns -1 in case of error, >= 0 = length of dest.
@@ -840,6 +732,7 @@ int iso2utf8(
 	char logtmp[51];
 	int i;
 	char *buffer;
+	char ucs2[2];
 
 	if (userdatalength < 0)
 		return -1;
@@ -860,31 +753,20 @@ int iso2utf8(
 
 	for (idx = 0; idx < userdatalength; idx++)
 	{
-		len = 0;
 		c = ascii[idx] & 0xFF;
-		// Euro character is 20AC in UTF-8, but A4 in ISO-8859-15:
+		// Euro character is E282AC in UTF-8, 20AC in UCS-2, but A4 in ISO-8859-15:
 		if (c == 0xA4)
 			c = 0x20AC;
 
-		if (c <= 0x7F)
-			tmp[len++] = (char) c;
-		else if (c <= 0x7FF)
-		{
-			tmp[len++] = (char) (0xC0 | ((c >> 6) & 0x1F));
-			tmp[len++] = (char) (0x80 | (c & 0x3F));
-		}
-		else if (c <= 0x7FFF)	// or <= 0xFFFF ?
-		{
-			tmp[len++] = (char) (0xE0 | ((c >> 12) & 0x0F));
-			tmp[len++] = (char) (0x80 | ((c >> 6) & 0x3F));
-			tmp[len++] = (char) (0x80 | (c & 0x3F));
-		}
+		ucs2[0] = (unsigned char)((c & 0xFF00) >> 8);
+		ucs2[1] = (unsigned char)(c & 0xFF);
+		len = ucs2_to_utf8_char(ucs2, tmp);
 
 		if (len == 0)
 		{
 			if (log_charconv)
 				logch(NULL);
-			writelogfile0(LOG_NOTICE, 0, tb_sprintf("UTF-8 conversion error with %i. ch 0x%2X %c.", idx + 1, c, (char) c));
+			writelogfile0(LOG_NOTICE, 0, tb_sprintf("UTF-8 conversion error with %i. ch 0x%02X %c.", idx + 1, c, (char) c));
 #ifdef DEBUGMSG
 			printf("%s\n", tb);
 #endif
@@ -936,7 +818,6 @@ int iso2utf8(
 	return result;
 }
 
-//hdr --------------------------------------------------------------------------------
 int encode_7bit_packed(
 	//
 	// Encodes a string to GSM 7bit (USSD) packed format.
@@ -953,9 +834,11 @@ int encode_7bit_packed(
 	char buffer[512];
 	char buffer2[512];
 	char padding = '\r';
+        int save_outgoing_utf8 = outgoing_utf8;
 
-	//len = iso_utf8_2gsm(text, strlen(text), buffer2, sizeof(buffer2), ALPHABET_AUTO, 0);
-	len = iso_utf8_2gsm(text, strlen(text), buffer2, sizeof(buffer2));
+        outgoing_utf8 = 1;
+	len = iso_utf8_2gsm(text, strlen(text), buffer2, sizeof(buffer2), 0, 0);
+        outgoing_utf8 = save_outgoing_utf8;
 
 #ifdef DEBUGMSG
 	printf("characters: %i\n", len);
@@ -985,7 +868,6 @@ int encode_7bit_packed(
 	return i;
 }
 
-//hdr --------------------------------------------------------------------------------
 int decode_7bit_packed(
 	//
 	// Decodes GSM 7bit (USSD) packed string.
@@ -1045,89 +927,315 @@ int decode_7bit_packed(
 	return i;
 }
 
-// ******************************************************************************
-
-#ifdef USE_ICONV
-int iconv_init(void)
+int utf8bytes0(char *s, int allow_iso)
 {
-  // do noy use 'UTF8' alias - it not supported in cygwin/mingw
-  return    (iconv4ucs = iconv_open("UTF-8", "UCS-2BE")) != (iconv_t)-1
-         && (iconv2ucs = iconv_open("UCS-2BE", "UTF-8")) != (iconv_t)-1;
-}
+  int result = 1;
+  int i;
+  unsigned char ch = s[0];
 
-static size_t iconv_convert(iconv_t cd, char *buf, size_t* ilen, size_t maxlen)
-{
-  char tmp[MAXTEXT], *out, *in;
-  size_t olen, rc;
-  const char* err;
-
-  if (!maxlen || !ilen || !*ilen || !buf)
-    return 0;
-
-  // reset conversion descriptor
-  iconv(cd, NULL, NULL, NULL, NULL);
-  err = NULL;
-  in = buf;
-  out = tmp;
-  olen = sizeof(tmp);
-  rc = iconv(cd, &in, ilen, &out, &olen);
-  if (rc == (size_t)-1)
+  if (ch >= 0x80)
   {
-    switch (errno)
+    while (((ch <<= 1) & 0x80) != 0)
+      result++;
+
+    // 3.1.20: Allow ISO character if defined:
+    if (result == 1 && allow_iso)
+      return 1;
+
+    if (result == 1 || result > 6)
+      return -1;
+
+    for (i = 1; i < result; i++)
     {
-      case E2BIG:
-        err = "Buffer to small";
-        break;
-      case EILSEQ:
-        err = "Invalid sequnce";
-        break;
-      case EINVAL:
-        err = "Incomplete sequence";
-        break;
-      default:
-        err = strerror(errno);
-        break;
+      if ((s[i] & 0xC0) != 0x80)
+      {
+        if (allow_iso)
+          return 1;
+
+        return -1;
+      }
     }
   }
-  olen = sizeof(tmp) - olen;
-  if (olen >= maxlen)
+
+  return result;
+}
+
+int utf8bytes(char *s)
+{
+  return utf8bytes0(s, 0);
+}
+
+int iso_utf8bytes(char *s)
+{
+  return utf8bytes0(s, 1);
+}
+
+int iso_utf8chars(char *s)
+{
+  int result = 0;
+  char *p = s;
+  int i;
+
+  while (*p)
   {
-    err = "output buffer too small";
-    olen = maxlen;
+    if ((i = iso_utf8bytes(p)) <= 0)
+      return -1;
+
+    result++;
+    p += i;
   }
-  memcpy(buf, tmp, olen);
-  if (err != NULL)
-    writelogfile(LOG_NOTICE, 0, "Unicode conversion error: %s", err);
-  return olen;
+
+  return result;
 }
 
-size_t iconv_utf2ucs(char *buf, size_t len, size_t maxlen)
+int iso_utf8_to_ucs2_char(char *utf8, int *len, char *ucs2)
 {
-  return iconv_convert(iconv2ucs, buf, &len, maxlen);
-}
+  unsigned int c = 0;
+  int i;
 
-size_t iconv_ucs2utf(char *buf, size_t len, size_t maxlen)
-{
-  return iconv_convert(iconv4ucs, buf, &len, maxlen);
-}
+  i = iso_utf8bytes(utf8);
+  if (len)
+    *len = i;
 
-size_t iconv_ucs2utf_chk(char *buf, size_t len, size_t maxlen)
-{
-  size_t olen, ilen = len;
-  olen = iconv_convert(iconv4ucs, buf, &ilen, maxlen);
-  buf[olen] = 0;
-  if (ilen != 0)
-    ilen = (len - ilen + 1) / 2;
-  return ilen;
-}
+  switch (i)
+  {
+    case 1:
+      c = (unsigned char)utf8[0];
+      break;
 
-int is_ascii_gsm(char* buf, size_t len)
-{
-  char tmp;
-  size_t i;
-  for (i = 0; i < len; i++)
-    if (buf[i] < ' ' || char2gsm(buf[i], &tmp) != 1)
+    case 2:
+      c = (utf8[0] & 0x1F) << 6 | (utf8[1] & 0x3F);
+      break;
+
+    case 3:
+      c = (utf8[0] & 0x0F) << 12 | (utf8[1] & 0x3F) << 6 | (utf8[2] & 0x3F);
+      break;
+
+    default:
       return 0;
+  }
+
+  ucs2[0] = (unsigned char)((c & 0xFF00) >> 8);
+  ucs2[1] = (unsigned char)(c & 0xFF);
+
   return 1;
 }
-#endif // USE_ICONV
+
+// Note: Returns the number of UCS2 characters, not bytes.
+int iso_utf8_to_ucs2_buffer(char *utf8, char *ucs2, size_t ucs2_size)
+{
+  char *p = utf8;
+  char *end = utf8 +strlen(utf8);
+  int bytes;
+  size_t dest = 0;
+  int result = 0;
+
+  while (p < end)
+  {
+    if (dest >= ucs2_size -1)
+      break;
+
+    if (!iso_utf8_to_ucs2_char(p, &bytes, &ucs2[dest]))
+      break;
+
+    p += bytes;
+    dest += 2;
+    result++;
+  }
+
+  return result;
+}
+
+// Returns the number of utf8 bytes.
+int ucs2_to_utf8_char(char *ucs2, char *utf8)
+{
+  int result;
+  unsigned int c = (ucs2[0] << 8) | (unsigned char)ucs2[1];
+
+  if (c <= 0x7F)
+  {
+    utf8[0] = (unsigned char)c;
+    result = 1;
+  }
+  else if (c <= 0x7FF)
+  {
+    utf8[1] = (unsigned char)(0x80 | (c & 0x3F));
+    c = (c >> 6);
+    utf8[0] = (unsigned char)(0xC0 | c);
+    result = 2;
+  }
+  else if (c <= 0xFFFF)
+  {
+    utf8[2] = (unsigned char)(0x80 | (c & 0x3F));
+    c = (c >> 6);
+    utf8[1] = (unsigned char)(0x80 | (c & 0x3F));
+    c = (c >> 6);
+    utf8[0] = (unsigned char)(0xE0 | c);
+    result = 3;
+  }
+  else
+    result = 0;
+
+  utf8[result] = '\0';
+  return result;
+}
+
+// Returns number of utf8 characters, not bytes.
+int ucs2_to_utf8_buffer(char *ucs2, size_t ucs2_buffer_len, char *utf8, size_t utf8_size)
+{
+  int result = 0;
+  char *p = ucs2;
+  char *end = ucs2 + ucs2_buffer_len;
+  char utf8char[7];
+  size_t len = 0;
+  int i;
+
+  while (p < end)
+  {
+    if (!(i = ucs2_to_utf8_char(p, utf8char)))
+      break;
+
+    if (len + i >= utf8_size)
+      break;
+
+    strcpy(&utf8[len], utf8char);
+    len += i;
+    p += 2;
+    result++;
+  }
+
+  return result;
+}
+
+// Returns number of bytes.
+size_t ucs2utf(char *buf, size_t len, size_t maxlen)
+{
+  char *ucs2 = (char *)malloc(len);
+
+  if (!ucs2)
+    return 0;
+
+  memcpy(ucs2, buf, len);
+  ucs2_to_utf8_buffer(ucs2, len, buf, maxlen +1);
+
+  free(ucs2);
+
+  return strlen(buf);
+}
+
+// Returns number of bytes.
+size_t iso_utf8_2ucs(char *buf, size_t maxlen)
+{
+  size_t ucs2_size = iso_utf8chars(buf) * 2; // Not NULL terminated.
+  char *ucs2;
+  size_t bytes;
+
+  if (ucs2_size > maxlen + 1)
+    ucs2_size = maxlen + 1;
+
+  if (!(ucs2 = (char *)malloc(ucs2_size)))
+    return 0;
+
+  bytes = 2 * iso_utf8_to_ucs2_buffer(buf, ucs2, ucs2_size);
+  memcpy(buf, ucs2, bytes);
+
+  free(ucs2);
+
+  return bytes;
+}
+
+// Returns number of utf8 bytes. -1 in case of error.
+int utf8_to_iso_char(char *utf8, unsigned char *iso)
+{
+  unsigned char *s = (unsigned char *)utf8;
+
+  *iso = '\0';
+
+  if (*s < 128)
+  {
+    *iso = *s;
+    return 1;
+  }
+
+  if (s[0] == 0xCE)
+  {
+    // ΔΦΓΛΩΠΨΣΘΞ --> 0x81 ... 0x8A
+    switch (s[1])
+    {
+      case 0x94: *iso = 0x81; return 2;
+      case 0xA6: *iso = 0x82; return 2;
+      case 0x93: *iso = 0x83; return 2;
+      case 0x9B: *iso = 0x84; return 2;
+      case 0xA9: *iso = 0x85; return 2;
+      case 0xA0: *iso = 0x86; return 2;
+      case 0xA8: *iso = 0x87; return 2;
+      case 0xA3: *iso = 0x88; return 2;
+      case 0x98: *iso = 0x89; return 2;
+      case 0x9E: *iso = 0x8A; return 2;
+    }
+  }
+
+  if (s[0] == 226 && s[1] == 130 && s[2] == 172)
+  {
+    *iso = 164;
+    return 3;
+  }
+
+  if (s[0] == 194 && s[1] >= 128 && s[1] <= 191)
+  {
+    *iso = s[1];
+    return 2;
+  }
+
+  if (s[0] == 195 && s[1] >= 128 && s[1] <= 191)
+  {
+    *iso = s[1] + 64;
+    return 2;
+  }
+
+  if (s[0] == 197)
+  {
+    switch (s[1])
+    {
+      case 160: *iso = 166; return 2;
+      case 161: *iso = 168; return 2;
+      case 189: *iso = 180; return 2;
+      case 190: *iso = 184; return 2;
+      case 146: *iso = 188; return 2;
+      case 147: *iso = 189; return 2;
+      case 184: *iso = 190; return 2;
+    }
+  }
+
+  if (s[0] >= 192 && s[0] < 224 &&
+      s[1] >= 128 && s[1] < 192)
+    return 2;
+
+  if (s[0] >= 224 && s[0] < 240 &&
+      s[1] >= 128 && s[1] < 192 &&
+      s[2] >= 128 && s[2] < 192)
+    return 3;
+
+  if (s[0] >= 240 && s[0] < 248 &&
+      s[1] >= 128 && s[1] < 192 &&
+      s[2] >= 128 && s[2] < 192 &&
+      s[3] >= 128 && s[3] < 192)
+    return 4;
+
+  if (s[0] >= 248 && s[0] < 252 &&
+      s[1] >= 128 && s[1] < 192 &&
+      s[2] >= 128 && s[2] < 192 &&
+      s[3] >= 128 && s[3] < 192 &&
+      s[4] >= 128 && s[4] < 192)
+    return 5;
+
+  if (s[0] >= 252 && s[0] < 254 &&
+      s[1] >= 128 && s[1] < 192 &&
+      s[2] >= 128 && s[2] < 192 &&
+      s[3] >= 128 && s[3] < 192 &&
+      s[4] >= 128 && s[4] < 192 &&
+      s[5] >= 128 && s[5] < 192)
+    return 6;
+
+  return -1;
+}

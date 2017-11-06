@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="Title" content="SMS Server Tools 3">
   <meta name="Robots" content="INDEX,FOLLOW">
   <meta name="Language" content="English">
@@ -39,52 +39,691 @@ blockquote p:first-letter {
 <body>
 <h2><font color=blue><a href="http://smstools3.kekekasvi.com">SMS Server Tools 3</a></font></h2>
 <a href="index.html">Home</a>
-<h3>Future plans (some of them)</h3>
+<h3>General</h3>
 <!-- START -->
 <p>
-<ul>
-  <li><p>
-      Built-in Wap Push message support (already done but can be enhanced).
-  </p></li>
-  <li><p>
-      Error handler and reporting feature which can send message(s) to "administrative emergency" number.
-  </p></li>
-  <li><p>
-      Configuration changes via administrative SMS.
-  </p></li>
-  <li><p>
-      SMSC Large Account support. (Not coming very soon).
-  </p></li>
-  <li><p>
-      About support for incoming messages with Symbian S60 based smart phones like Nokia N95 etc.:<br>
-      There will be <b>no support</b> for those devices as they do not show incoming messages thru the AT command interface.<br>
-      See F.A.Q. for more details.
-  </p></li>
 If you have any comments, ideas, needs or other SMS Server Tools 3 related things, please write them 
 to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> which is a support forum for this software.
-</ul>
 </p>
 
 <h3>Coming to the version 3.2.x, not yet released</h3>
 
 <p>
-  Estimated release time for following additions <s>is fall 2009.</s> <i>was fall 2009, but the publishing is delayed.</i>
+  Estimated release time for following additions was in the past, but the publishing is delayed.</i>
 </p>
 <p>
 <ol>
   <li><p>
-      Faster spooling algorithm. Required if system has <u>lot</u> of modems and <u>very</u> much messages to send.
-      Current algorithm works well on systems with less than 10 - 15 modems and with about 500 -600 messages per hour per each modem.
+    SQL database based spooling and message handling.
+    Can be used together with current filesystem based spooling, or instead of it.
+    At least MySQL and PostgreSQL will be supported, likely SQLite3, Mini SQL and Microsoft SQL Server too.
   </p></li>
-  <li><p>
-      SQL database based spooling and message handling.
-      Can be used together with current filesystem based spooling, or instead of it.
-      At least MySQL will be supported, probably SQLite too.
-  </p></li>
-
 </ol>
 
 <h3>Version history</h3>
+
+<b>11.04.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.20</b>
+
+<p>Sent message file:</p>
+<ol start=1>
+  <li><p>New header: <i><b>Sending_time: number of seconds</b></i>
+    <br>
+    Tells how long it took to send the whole message.
+    If the message has multiple parts and <i>receive_before_send</i> is set to <i>yes</i>,
+    time to receive messages is included in this value.
+  </p></li>
+</ol>
+
+<p>Configuration file (smsd.conf):</p>
+<ol start=2>
+  <li><p>
+    Special section <b>[communicate]</b> can define shortcuts which can
+    be used when communicating with a modem (e.g. <i>smsd -C GSM1</i>).
+    Possible keys are Alt-0 ... Alt-9, and the syntax is like the following:
+    <ul>
+      [communicate]<br>
+      <b>a0</b> = ATZ<br>
+      <b>a5</b> = AT+CPMS?<br>
+    </ul>
+    </p><p>
+    When communicating starts, available shortcuts are printed to the console.
+    Alt-? also prints available shortcuts.
+    Shortcuts can be used after a modem is opened.
+    Shortcut does not include CR character, it must be pressed by the user.
+    </p><p>
+    Also the Ctrl-Z character can be sent using the Alt-Z key,
+    required when terminating the PDU.
+  </p></li>
+</ol>
+
+<p>General:</p>
+<ol start=3>
+<li><p>
+    Nowadays modems like Huawei are moderately general in simple environments,
+    and list of incoming messages with those devices starts from 0.
+    There is a configuration setting <i>memory_start</i> available, and
+    it defaults to 1 because of backward compatibility.
+    If <i>memory_start</i> is not set, and reading of messages causes an error,
+    notification is written to the log and modem process changes the start to 0
+    automatically. To avoid future error messages  when smsd starts, a configuration
+    setting <i>memory_start = 0</i> should be applied manually.
+</p></li>
+
+<li><p>
+    When a status of PIN is asked from the modem, the answer "+CPIN: READY"
+    is expected. Now also simply "OK" is accepted.
+</p></li>
+
+<li><p>
+    When checking if a script is executable, it is also checked if a definition
+    incorrectly points to the directory.
+</p></li>
+</ol>
+
+<p>Bug fixes:</p>
+<ol start=6>
+  <li><p>
+    Even when the outgoing text is UTF-8 encoded, ISO characters are still accepted
+    for backward compatibility. Changes for character conversion in 3.1.16 dropped
+    ISO characters, and this is now fixed.
+  </p></li>
+
+  <li><p>
+    A field <i>Discharge_timestamp</i> in the messabe body of status report was
+    always using the format "%y-%m-%d %H:%M:%S", even when a custom <i>datetime_format</i>
+    was defined in the configuration file. This is fixed.
+  </p></li>
+</ol>
+
+<p>
+<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
+</p>
+
+<hr>
+
+<b>10.03.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.19</b>
+
+<p>Configuration file (smsd.conf):</p>
+<ol>
+
+<li><p>Devices setting: multiple wildcard definitions can be used, together with static names.
+For example:<br>
+<b>devices = ELISA* 11-15, SONERA* 11-15, GSM1</b>
+</p></li>
+
+<li><p>"group" sections can be defined.
+If the system has <i>devices = ELISA* 11-13, GSM1, DNA33* 1-5</i>, the following groups can be used:
+</p>
+<p>
+<ul>
+<b>[ELISA*]</b><br>
+# Settings for ELISA11, ELISA12 and ELISA13 SIM's<br>
+<br>
+<b>[DNA*]</b><br>
+# Settings for DNA331, DNA332 etc. SIM's<br>
+</ul>
+</p>
+<p>
+Grouping works with device names which do not start with digit.
+Asterisk is placed to the position where the first digit exists.
+</p>
+<p>
+All modems read [default] section first, if it exists.
+Next the group section is read, if it exists.
+Finally the modems own section is read, if it exists.
+</p></li>
+
+</ol>
+<p>Other:</p>
+<ol start=3>
+
+<li><p>Wildcard definitions can be used in the suspend file,
+for example: <b>ELISA*: &lt;reason&gt;</b>.
+The letters before <b>*:</b> are tested, and if the name of a modem matches with them, suspend is applied.
+</p></li>
+</ol>
+
+<p>
+Bug fixes:
+<ol start=4>
+  <li><p>
+    In the version 3.1.18 reading of modem settings was restructured and the
+    new code forgot to close the handle of configuration file. This is fixed.
+  </p></li>
+</ol>
+</p>
+
+</ol>
+
+<hr>
+
+<b>03.03.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.18</b>
+
+<p>Configuration file (smsd.conf):</p>
+<ol>
+
+<li><p>New setting for a modem:
+<i><b><a name="m_read_configuration_after_suspend">read_configuration_after_suspend</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+If set to <i>yes</i>, modem process will read the configuration when suspend is going to break or end.
+Configuration is checked and modem port (<i>device</i>) is tested.
+If there are any problems, suspend continues.
+Problems are shown in the log, and after problems are fixed, a signal USR2 must be sent to the modem process.
+When configuration has no problems, modem process will continue as usual.
+</p>
+<p>
+Changes for device settings <i>logfile</i> and <i>loglevel</i> do not apply without restarting smsd.
+</p></li>
+
+<li><p>New setting for a modem:
+<i><b>read_identity_after_suspend = yes/no</b></i><br>
+<font size="1">Default value: <i>yes</i>.</font><br>
+Defines if IMEI and IMSI are refreshed after the suspend has ended.
+This is useful if modem was suspended, and the SIM was changed on the fly,
+without restarting the whole daemon and without reading the whole modem setup.
+</p></li>
+
+<li><p>New setting for a modem:
+<i><b>delaytime = number</b></i><br>
+<font size="1">Default value: <i>use the global part setting</i>.</font><br>
+Defines how many seconds a modem process sleeps when it has nothing to do.
+This setting overrides the global <i>delaytime</i> value.
+</p></li>
+
+<li><p>New setting for a modem:
+<i><b>delaytime_random_start = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Defines if the first sleep of a modem process is randomized, using a value between 0 and <i>delaytime</i>.
+With very large number of modems it may be good that all processes are not working at the same time.
+</p></li>
+
+<li><p>New global setting:
+<i><b>start = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+Defines a script/program which is executed when smsd starts.
+This should be /path/to/executable only.
+If any arguments are required, use <i>start_args</i>.
+If return value of this script is anything else than 0, smsd stops.
+</p></li>
+
+<li><p>New global setting:
+<i><b>start_args = string</b></i><br>
+<font size="1">Default value: <i>empty</i>.</font><br>
+Defines arguments for <i>start</i> script.
+</p></li>
+
+</ol>
+
+<p>
+Bug fixes:
+<ol start=7>
+  <li><p>
+    If smsd was compiled with shared memory (statistics) enabled, and NUMBER_OF_MODEMS in the Makefile
+    was set to 124 or more, there was not enough shared memory available when trying to start smsd.
+    Error message was written to the log and smsd did not start.
+    Calculation of required memory with large setups is fixed, and now hundreds of modems are
+    supported with statistics enabled. 
+  </p></li>
+
+  <li><p>
+    If notifier (released in the version 3.1.17) was used, it did not terminate in some environments
+    when smsd terminated. This was because smsd used a signal SIGTERM to terminate it.
+    Now SIGKILL is used.
+  </p></li>
+</ol>
+</p>
+
+<hr>
+
+<b>24.02.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.17</b>
+
+<p>General:</p>
+<ol>
+
+<li><p>Main loops are fine-tuned to reduce CPU load and increase the performance of spooling.
+</p>
+<p>
+When smsd is spending some delay, for example sleeping after error, it sleeps more and less often,
+meaning that single sleep in the sleeping loop is raised to 10ms from 100&micro;s.
+</p></li>
+
+<li><p>
+Smsd now respects environment setting TMPDIR or TEMPDIR, if available.
+Without those variables smsd uses <i>/tmp</i>, as before.
+</p></li>
+
+<li><p>When sending large number of messages continuously, regular run of a modem is executed on schedule,
+without need to use <i>max_continuous_sending</i> setting.
+</p></li>
+
+</ol>
+
+<p>Configuration file (smsd.conf):</p>
+<ol start=4>
+
+<li><p>New global setting:
+<i><b>notifier = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+If set to <i>yes</i>, mainspooler creates a child process which will use <i>inotifywait</i>
+to monitor <i>outgoing</i> directory. As soon as a new file appears in the directory,
+mainprocess gets a signal SIGCONT and continues immediately.
+New files are spooled as fast as possible, even when mainprocess has long sleeping times
+to reduce CPU load.
+</p>
+<p>
+This feature is available only on GNU/Linux systems.
+When compiling smsd on other systems, edit the Makefile and uncomment the line
+which defines DISABLE_INOTIFY. By default inotify is enabled.
+</p></li>
+
+<li><p>New global setting:
+<i><b>sleeptime_mainprocess = value</b></i><br>
+<font size="1">Default value: <i>1</i></font><br>
+Value is seconds. This setting defines how long mainprocess sleeps when no any messages are spooled.
+While looping, another smsd is detected, modem processes are listened and statistic files are written.
+This setting does not affect for picking up new outgoing files, there is another setting <i>delaytime_mainprocess</i> for it.
+Also notice that if an external child with inotifywait is used, mainprocess will get the signal CONT and
+continues spooling immediately after a new file exists.
+Because of this, delaytime can be high to save resources on small systems.
+</p>
+<p>
+If it is needed that smsd really sleeps using <i>sleep()</i> while idle, this value can be set to higher than 1.
+However, in usual systems there is no need for that.
+Even if value is higher, regular_run script is executed on time, if in use.
+PID and processes are checked less often, and statistics are written less often if this value is higher
+than values set to those tasks.
+</p></li>
+
+<li><p>New global setting:
+<i><b>check_pid_interval = number</b></i><br>
+<font size="1">Default value: <i>10</i>.</font><br>
+Defines how often mainprocess will check the pidfile, to see if there was another smsd started.
+If another smsd is started, current smsd will stop immediately.
+Value 0 disables this checking. Value is seconds.
+</p></li>
+
+<li><p>New global setting:
+<i><b>child = filename</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+This setting creates a child process to the mainspooler.
+It starts when smsd starts, and stops when smsd stops.
+If child has created one or more childs, they are stopped too when smsd stops.
+</p>
+<p>
+Child can be used for various purposes, for example feeding spooler from SQL database,
+taking care that the number of files in the spooler does not grow too much, and
+feeding is done only when smsd is running.
+</p>
+<p>
+Filename must be path/to/executable only, because it is checked when smsd starts.
+Use the setting <i>child_args</i> if any arguments are required.
+</p></li>
+
+<li><p>New global setting:
+<i><b>child_args = string</b></i><br>
+<font size="1">Default value: <i>empty</i>.</font><br>
+Defines arguments to the child.
+</p></li>
+
+<li><p>New global settings:<br>
+<i><b>failed_copy = directory</b></i><br>
+<i><b>report_copy = directory</b></i><br>
+<i><b>sent_copy = directory</b></i><br>
+<font size="1">Default value: <i>not in use</i>.</font><br>
+It not empty, copy of all failed / report / sent messages are stored into this directory.
+Depending on the setting 
+eventhandler_use_copy
+smsd does not do anything with these files, 
+so external application can use them in whatever way it wants.
+</p><p>
+For incoming messages a setting <i>incoming_copy</i> applies, it was released in the version 3.1.16.
+</p></li>
+
+<li><p>New global setting:
+<i><b>eventhandler_use_copy = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+If a copy of failed / incoming / sent / report message is created, this setting defines if a
+copied file is given to the eventhandler instead of original file.
+</p></li>
+
+<li><p>New setting for a modem:
+<i><b>receive_before_send = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+This is now available as a modem setting.
+Without this setting a value of global setting is used.<br>
+Forces smsd to empty the first SIM card memory before sending SM.
+This is a workaround for modems that cannot send SM with a full SIM card.
+</p></li>
+
+</ol>
+
+<p>Outgoing message file:</p>
+<ol start=12>
+
+<li>Filenames starting with a dot (so called hidden files) and filenames starting with "LOCKED" are now ignored.
+Filenames ending with ".LOCK" are ignored too, as before.
+</li>
+
+</ol>
+
+<hr>
+
+<b>08.02.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.16</b>
+
+<p>
+Documentation is now updated and this version has no beta status anymore.
+</p>
+
+<hr>
+
+<b>01.02.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.16beta2</b>
+
+<p>
+When communicating with the modem, smsd polls the answer much faster than before,
+when the expected answer is known. A new setting <i>poll_faster</i> is available,
+and it's the factor to reduce idle time and increase number of times to listen.
+The factor defaults to 5, which seems to work well with many modems.
+Some modems work even faster with greater value, like 30.
+However, very high values may increase the server load remarkably, so proper value should be
+measured by device. There is a setting <i>log_read_timing</i> available for tuning purposes.
+</p>
+<br>
+<p>
+Handling of alphabets is enhanced and all conversion are now done using internal routines
+which work well with cyrillic languages too.
+For backward compatibility, the alphabet of message file still defaults to ISO-8859-15,
+and this can be changed to UTF-8 in the configuration, or a header <i>Alphabet: UTF</i>
+can should be used.
+To receive cyrillic messages directly to UTF-8 character set, use the global settings
+<i>decode_unicode_text = yes</i> and <i>incoming_utf8 = yes</i>.
+</p>
+<p>
+When sending text messages, choices are:
+</p>
+<p><b>Alphabet: ISO</b>
+<ul>
+  <li>
+    depending on the global setting <i>outgoing_utf8</i> (which defaults to <i>yes</i>), UTF-8 is still accepted and converted.
+  </li>
+  <li>
+    optical replacement is done, depending on the modem setting <i>cs_convert_optical</i> (which defaults to <i>yes</i>).
+  </li>
+  <li>
+    characters are converted to the GSM alphabet, and missing characters are dropped.
+  </li>
+</ul>
+</p>
+<p><b>Alphabet: UTF</b>
+<ul>
+  <li>
+    like with ISO, but if any characters cannot be converted to the GSM alphabet,
+    whole message is converted to the UCS2 alphabet.
+  </li>
+  <li>
+    if conversion to UCS2 is done, each message part will have less characters and
+    therefore more parts will be required, but the text delivers as it was written.
+  </li>
+</ul>
+</p>
+<br>
+<p>
+<a href="http://smstools3.kekekasvi.com/index.php?p=national_language_shift_tables">National Language Shift Tables</a> are now supported.
+Languages are (European) Turkish, Spanish and Portuguese, 
+and (Indian) Bengali and Assemese, Gujarati, Hindi, Kannada, Malayalam, Oriya, Punjabi, Tamil, Telugu and Urdu.
+If you do not need this support, and your computer is some embedded device with low memory, you can disable this
+support in Makefile. Also there is a definition to support European languages only.
+</p>
+<p>
+When SMS using shift tables is received, it is always stored using UTF-8 alphabet.
+When sending SMS, there are headers <i>Language</i> and <i>Language_ext</i> available.
+Default values can also be set in the configuration.
+When shift tables are used, text body of SMS should be written using UTF-8 alphabet.
+Tables of the character sets can be found on the doc directory of a package.
+</p>
+<br>
+<p>
+Documentation is not yet updated. It will be done after beta status has gone.
+</p>
+
+<p>
+Any feedback is valuable.
+</p>
+<br>
+<p>
+Configuration file (smsd.conf):
+<ol>
+
+  <li><p>
+      New global setting: <i><b>alphabet = string</b></i>.<br>
+      <font size="1">Default value: <i>ISO</i>.</font><br>
+      This setting defines how message body of outgoing file is handled, when there
+      is no <i>Alphabet</i> header included. Choices are <i>ISO</i>, <i>Latin</i> or <i>Ansi</i> for ISO-8859-15,
+      and <i>UTF</i> for UTF-8.
+  </p></li>
+
+  <li><p>
+      New global setting: <i><b>log_read_timing = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      This setting is for tuning purposes.
+      When testing and searching suitable value for the <i>poll_faster</i> factor,
+      it's important to see how the modem communicates and how much modem process
+      generates server load.
+  </p></li>
+
+  <li><p>
+      New global setting: <i><b>incoming_copy = string</b></i>.<br>
+      <font size="1">Default value: <i>empty</i>.</font><br>
+      It not empty, copy of all incoming messages are stored into this directory.
+      Smsd does not do anything with these files, so external application can use them 
+      in whatever way it wants.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>poll_faster = number</b></i>.<br>
+      <font size="1">Default value: <i>5</i>.</font><br>
+      This setting speeds up the polling, when it is known what to expect
+      as an answer from the modem. Use the global setting <i>log_read_timing</i>
+      to find out the best performance with your device.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>cs_convert_optical = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>yes</i>.</font><br>
+      If set to <i>yes</i>, when a character cannot be represented in the GSM character set,
+      it can be approximated through one or several similarly looking characters.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>national_toa_unknown = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      When destination number is national, some operators require that "unknown" format is defined.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>ignore_unexpected_input = string</b></i>.<br>
+      <font size="1">Default value: <i>none</i>.</font><br>
+      If the device continually sends some unexpected input, and there is not other way
+      to get rid of it, suitable phrase can be defined to keep the log clean.
+      Multiple phrases can be defined with multiple settings.
+  </p></li>
+
+  <li><p>
+      New settings for a modem: <br>
+      <i><b>language = string or number</b></i>.<br>
+      <font size="1">Default value: <i>none</i>.</font><br>
+      <i><b>language_ext = string or number</b></i>.<br>
+      <font size="1">Default value: <i>none</i>.</font><br>
+      These settings set default values for the outgoing message file.
+      For more details see the headers section.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>regular_run_keep_open = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      This setting defines if a modem is kept open when modem process is executing
+      external regular_run scripts.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>select_pdu_mode = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>yes</i>.</font><br>
+      Defines if PDU mode is selected each time when communication with the modem is started.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>description = string</b></i>.<br>
+      <font size="1">Default value: <i>empty</i>.</font><br>
+      If set, this description is written to each SMS file as an additional header.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>reply_path = yes/no</b></i>.<br>
+      <font size="1">Default value: <i>no</i>.</font><br>
+      Defines a default value for Reply Path (TP-RP) field.
+      Header in the message file overrides this value.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>sentsleeptime = number</b></i>.<br>
+      <font size="1">Default value: <i>0</i>.</font><br>
+      Some modems may need little delay after each part of SMS is sent. 
+      This time is in seconds.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>read_delay = number</b></i>.<br>
+      <font size="1">Default value: <i>0</i>.</font><br>
+      Some modems may require small delay before reading is started. 
+      This time is in milliseconds.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>text_is_pdu_key = string</b></i>.<br>
+      <font size="1">Default value: <i>none</i>.</font><br>
+      In some systems the PDU is generated outside the smsd.
+      As the modem is kept open by smsd, external program cannot use it.
+      In this case external program can create SMS file for smsd, and in this file
+      the message body is PDU in the hex format, and <i>To:</i> number should match 
+      with this key.
+  </p></li>
+
+  <li><p>
+      New setting for a modem: <i><b>notice_ucs2 = number</b></i>.<br>
+      <font size="1">Default value: <i>2</i>.</font><br>
+      Message written using UTF-8 alphabet is tried to convert to GSM alphabet, to save 
+      sending costs.
+      Any character outside the GSM alphabet is reported, if value of <i>notice_ucs2</i> is 2.
+      If the value is at least 1, total number of missing characters is reported.
+      Each character is presented in the sent message file using <i>NOTICE:</i> header.
+      With cyrillic languages the conversion is always done, and the information is not 
+      important.
+      Notification can be disabled with value 0.
+  </p></li>
+
+  <li><p>
+      Modem setting: <i><b>report = yes/no/disabled</b></i>.<br>
+      This can now have a value <i>disabled</i>, which means that the report is not asked
+      even when the message file has a <i>Report: yes</i> header.
+  </p></li>
+
+  <li><p>
+      More modem settings can now have a special keyword <b>modemname</b>, which is replaced with a name of a modem.<br>
+      All of those settings are: <i>device, queues, logfile, eventhandler, eventhandler_ussd, pdu_from_file, regular_run,
+      regular_run_post_run, regular_run_cmdfile, regular_run_logfile</i> and <i>regular_run_statfile</i>.
+  </p></li>
+
+</ol>
+</p>
+
+<p>
+Outgoing message file:
+<ol start=19>
+
+  <li><p>
+      When reading headers, Byte Order Mark is removed, if the file starts with it.
+      Also the EOF character is removed from the end of message body, if <i>cs_convert</i> is set.
+  </p></li>
+
+  <li><p>New headers: <br>
+      <i><b>Language: value</b></i> <br>
+      <i><b>Language_ext: value</b></i><br>
+      Value can be number, or variable length string which first macthes.
+      <br>Choices are:
+      <ul>
+        <li>0 = basic</li>
+        <li>1 = Turkish</li>
+        <li>2 = Spanish</li>
+        <li>3 = Portuguese</li>
+        <li>4 = Bengali and Assemese, or Bengali, or Assemese</li>
+        <li>5 = Gujarati</li>
+        <li>6 = Hindi</li>
+        <li>7 = Kannada</li>
+        <li>8 = Malayalam</li>
+        <li>9 = Oriya</li>
+        <li>10 = Punjabi</li>
+        <li>11 = Tamil</li>
+        <li>12 = Telugu</li>
+        <li>13 = Urdu</li>
+      </ul>
+      <p>
+      Usually it is not necessary to set <i>Language_ext</i> value.
+      When <i>Language</i> is set, <i>Language_ext</i> defaults to the same,
+      and if only <i>Language_ext</i> is defined, <i>Language</i> defaults to
+      basic character set. If nothing is set, default values are taken from the configuration.
+      </p>
+  </p></li>
+
+  <li><p>New header: <i><b>Text_is_pdu: yes</b></i>.
+      If this feature is enabled by defining <i>text_is_pdu_key</i> in the configuration,
+      and <i>To:</i> number matches that key, message body is handled as ready made PDU.
+  </p></li>
+
+</ol>
+<p>
+( For more information about the next 6 settings, see the 3GPP TS 23.040 standard. )
+</p>
+<ol start=22>
+  <li><p>New header: <i><b>Message_Reference: number</b></i>.
+      Sets TP-MR field in the PDU. Number can be 0...255.
+  </p></li>
+
+  <li><p>New header: <i><b>Reject_Duplicates: yes</b></i>.
+      Sets TP-RD bit in the PDU.
+  </p></li>
+
+  <li><p>New header: <i><b>Reply_path: yes</b></i>.
+      Sets TP-RP bit in the PDU.
+  </p></li>
+
+  <li><p>New header: <i><b>Class: number</b></i>.
+      Sets the Message Class, 0...3.
+  </p></li>
+
+  <li><p>New header: <i><b>DCS_hex: value</b></i>.
+      Sets Data Coding Scheme in the PDU.
+      Note that value must be represented as two hexadecimal digits.
+  </p></li>
+
+  <li><p>New header: <i><b>Ping: yes</b></i>.
+      Selects the Short Message Type 0, which is also known as a silent SMS.
+      As this kind of SMS is not stored by the receiving device, report
+      is always requested, even if report was disabled in the configuration.
+  </p></li>
+
+</ol>
+</p>
+
+<p>
+Bug fixes:
+<ol start=28>
+  <li><p>
+      When communicating with device, ECHO ON is NOT set automatically when device is socket. 
+      This is because network modems may require login and/or password and it is not known when the setting can be made.
+  </p></li>
+</ol>
+</p>
+
+<hr>
 
 <b>08.06.2016&nbsp;&nbsp;&nbsp;&nbsp;3.1.16beta</b>
 
@@ -194,11 +833,11 @@ Any feedback is valuable.
       For example:
 <pre>
 Status:     16-06-07 00:16:49, irrri-------
-SONERA:     16-06-07 00:16:45, Idle,      131267, 0, 4666, ssi: -71 dBm (Excellent), ber: < 0.2 %
-ELISA:      16-06-07 00:16:45, Receiving, 133877, 3, 4741, ssi: -79 dBm (Good), ber: < 0.2 %
-DNA:        16-06-07 00:16:47, Receiving, 127181, 0, 4708, ssi: -65 dBm (Excellent), ber: < 0.2 %
-SAUNALAHTI: 16-06-07 00:16:48, Receiving, 128495, 1, 4678, ssi: -79 dBm (Good), ber: < 0.2 %
-SAUNA2:     16-06-07 00:16:45, Idle,      5640,   9, 488,  ssi: -77 dBm (Good), ber: < 0.2 %
+SONERA:     16-06-07 00:16:45, Idle,      131267, 0, 4666, ssi: -71 dBm (Excellent), ber: &lt; 0.2 %
+ELISA:      16-06-07 00:16:45, Receiving, 133877, 3, 4741, ssi: -79 dBm (Good), ber: &lt; 0.2 %
+DNA:        16-06-07 00:16:47, Receiving, 127181, 0, 4708, ssi: -65 dBm (Excellent), ber: &lt; 0.2 %
+SAUNALAHTI: 16-06-07 00:16:48, Receiving, 128495, 1, 4678, ssi: -79 dBm (Good), ber: &lt; 0.2 %
+SAUNA2:     16-06-07 00:16:45, Idle,      5640,   9, 488,  ssi: -77 dBm (Good), ber: &lt; 0.2 %
 
 Start:      16-04-03 19:30:38, up 64 days, 4:46
 </pre>
@@ -285,10 +924,6 @@ Bug fixes:
 </ol>
 </p>
 
-<p>
-<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
-</p>
-
 <hr>
 
 <b>21.10.2012&nbsp;&nbsp;&nbsp;&nbsp;3.1.15</b>
@@ -308,10 +943,6 @@ Bug fixes:
   </p></li>
 
 </ol>
-</p>
-
-<p>
-<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
 </p>
 
 <hr>
@@ -1502,8 +2133,8 @@ Bit Error Rate: less than 0.2 %
       For example in Finland the response in the log file will be like (here split into three lines):
 <pre>
 2009-03-30 11:56:00,5, GSM1: CMD: AT+CUSD=1,"*100#",0;: 
-OK +CUSD: 2,"Liittymäsi saldo on 35.95 EUR ja 
-voimassaoloaika päättyy 27.07.2009.",15
+OK +CUSD: 2,"LiittymÃ¤si saldo on 35.95 EUR ja 
+voimassaoloaika pÃ¤Ã¤ttyy 27.07.2009.",15
 </pre>
   </p></li>
   <li><p>
@@ -1921,7 +2552,7 @@ Outgoing message file:
   </p></li>
   <li><p>New header: <i><b>System_message: yes</b></i>.
       With this setting message is sent as a system message.
-      This kind of message has fixed values 0x40 for Protocol Identifier and 0xF4 for Digital Coding Scheme.
+      This kind of message has fixed values 0x40 for Protocol Identifier and 0xF4 for Data Coding Scheme.
       A message cannot have User Data Header.
       Maximum length of a message is 140 bytes.
   </p></li>
@@ -2517,7 +3148,7 @@ Bug fixes:
 Outgoing message file:
 <ol>
   <li><p>When sending ISO coded message, all characters which cannot be transferred using the GSM character set
-      are replaced with their alternatives. For example Ê becomes E, õ becomes o and so on.
+      are replaced with their alternatives. For example ÃŠ becomes E, Ãµ becomes o and so on.
       In the previous versions of smsd there was a replacement made only for few characters.
   </p></li>
 </ol>

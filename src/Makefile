@@ -11,17 +11,23 @@ CFLAGS = -D NUMBER_OF_MODEMS=64
 # Comment this out, to enable statistics
 CFLAGS += -D NOSTATS
 
-# Comment this out if iconv is not available on the system
-#CFLAGS += -D USE_ICONV
-
-# Uncomment this is iconv is used and it's not included in libc:
-#LFLAGS += -liconv
+# Uncomment this to disable usage of inotify
+#CFLAGS += -D DISABLE_INOTIFY
 
 # Uncomment this to force smsd to run in terminal mode
 #CFLAGS += -D TERMINAL
 
 # Uncomment this to disable usage of inet socket
 #CFLAGS += -D DISABLE_INET_SOCKET
+
+# Uncomment this to disable usage of national language shift tables
+#CFLAGS += -D DISABLE_NATIONAL_LANGUAGE_SHIFT_TABLES
+
+# Uncomment this to support european national languages only
+#CFLAGS += -D NATIONAL_LANGUAGES_EUROPEAN_ONLY
+
+# Uncomment this to print national language shift tables (smsd does not do anything else)
+#CFLAGS += -D PRINT_NATIONAL_LANGUAGE_SHIFT_TABLES
 
 # Uncomment to add debug info
 # CFLAGS += -ggdb -O0
@@ -39,7 +45,7 @@ CFLAGS += -D_FILE_OFFSET_BITS=64
 
 all: smsd 
 
-smsd: smsd.c extras.o locking.o cfgfile.o logging.o alarm.o smsd_cfg.o charset.o stats.o blacklist.o whitelist.o modeminit.o pdu.o
+smsd: smsd.c extras.o locking.o cfgfile.o logging.o alarm.o smsd_cfg.o charset.o stats.o blacklist.o whitelist.o modeminit.o pdu.o charshift.o
 
 ifneq (,$(findstring SOLARIS,$(CFLAGS)))
 ifeq (,$(findstring DISABLE_INET_SOCKET,$(CFLAGS)))

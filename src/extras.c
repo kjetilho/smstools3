@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -33,6 +32,67 @@ Either version 2 of the License, or (at your option) any later version.
 #include "smsd_cfg.h"
 #include "logging.h"
 #include "alarm.h"
+
+FILE *fopen_mkstemp(char *fname)
+{
+  mode_t mode;
+  int fd;
+  FILE *fp = 0;
+
+  if ((fd = mkstemp(fname)) == -1)
+  {
+    writelogfile0(LOG_CRIT, 1, tb_sprintf("mkstemp failure: %s - %i, %s", fname, errno, strerror(errno)));
+    alarm_handler0(LOG_CRIT, tb);
+  }
+  else
+  {
+    mode = umask(0);
+    umask(mode);
+    if (fchmod(fd, 0666 & ~mode))
+    {
+      writelogfile0(LOG_CRIT, 1, tb_sprintf("fchmod failure: %s - %i, %s", fname, errno, strerror(errno)));
+      alarm_handler0(LOG_CRIT, tb);
+    }
+
+    if (!(fp = fdopen(fd, "w")))
+    {
+      writelogfile0(LOG_CRIT, 1, tb_sprintf("fdopen failure: %s - %i, %s", fname, errno, strerror(errno)));
+      alarm_handler0(LOG_CRIT, tb);
+      close(fd);
+      unlink(fname);
+
+      // This should not be required, but at least on one Cygwin environment fopen() right after
+      // unlink() failed (permission denied) randomly, but rarely, and first retry helped:
+      writelogfile(LOG_CRIT, 1, "Waiting 1 sec before retrying with %s", fname);
+      usleep_until(time_usec() + 1000000);
+      if (!(fp = fopen(fname, "w")))
+      {
+        writelogfile(LOG_CRIT, 1, "2. fopen write failure: %s - %i: %s", fname, errno, strerror(errno));
+        writelogfile(LOG_CRIT, 1, "Waiting 5 sec before retrying with %s", fname);
+        usleep_until(time_usec() + 5000000);
+
+        if (!(fp = fopen(fname, "w")))
+        {
+          writelogfile(LOG_CRIT, 1, "3. fopen write failure: %s - %i: %s", fname, errno, strerror(errno));
+          writelogfile0(LOG_CRIT, 1, tb_sprintf("Not retrying anymore with %s", fname));
+          alarm_handler0(LOG_CRIT, tb);
+        }
+        else
+        {
+          writelogfile0(LOG_CRIT, 1, tb_sprintf("2. retry helped with %s", fname));
+          alarm_handler0(LOG_CRIT, tb);
+        }
+      }
+      else
+      {
+        writelogfile0(LOG_CRIT, 1, tb_sprintf("1. retry helped with %s", fname));
+        alarm_handler0(LOG_CRIT, tb);
+      }
+    }
+  }
+
+  return fp;
+}
 
 int yesno(char *value)
 {
@@ -161,7 +221,19 @@ int line_is_blank(char *line)
   return(line[i] == 0);
 }
 
-int movefile( char*  filename,  char*  directory)
+// 3.1.17: Using the same function to copy file.
+
+int movefile(char *filename, char *directory)
+{
+  return copymovefile(0, filename, directory);
+}
+
+int copyfile(char *filename, char *directory)
+{
+  return copymovefile(1, filename, directory);
+}
+
+int copymovefile(int copy, char *filename, char *directory)
 {
   char newname[PATH_MAX];
   char storage[1024];
@@ -195,7 +267,10 @@ int movefile( char*  filename,  char*  directory)
 	}
       close(dest);
       close(source);
-      unlink(filename);
+
+      if (!copy)
+        unlink(filename);
+
       return 1;
     }
     else
@@ -213,35 +288,62 @@ int movefile( char*  filename,  char*  directory)
 // 1 = lockfile cannot be created. It exists.
 // 2 = file copying failed.
 // 3 = lockfile removing failed.
-int movefilewithdestlock_new(char* filename, char* directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename)
+
+// 3.1.17: Using the same function to copy file.
+
+int movefilewithdestlock(char *filename, char *directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename)
+{
+  return copymovefilewithdestlock(0, filename, directory, keep_fname, store_original_fname, prefix, newfilename);
+}
+
+int copyfilewithdestlock(char *filename, char *directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename)
+{
+  return copymovefilewithdestlock(1, filename, directory, keep_fname, store_original_fname, prefix, newfilename);
+}
+
+int copymovefilewithdestlock(int copy, char *filename, char *directory, int keep_fname, int store_original_fname, char *prefix, char *newfilename)
 {
   if (newfilename)
     *newfilename = 0;
 
   if (keep_fname)
   {
-    char lockfilename[PATH_MAX];
+    char filename2lock[PATH_MAX];
     char* cp;
 
-    //create lockfilename in destination
+    //create filename2lock in destination
     cp=strrchr(filename,'/');
     if (cp)
-      sprintf(lockfilename,"%s%s",directory,cp);
+      sprintf(filename2lock,"%s%s",directory,cp);
     else
-      sprintf(lockfilename,"%s/%s",directory,filename);
+      sprintf(filename2lock,"%s/%s",directory,filename);
+
     //create lock and move file
-    if (!lockfile(lockfilename))
-      return 1;
-    if (!movefile(filename,directory))
+    if (!lockfile(filename2lock))
+    // 3.1.16beta2: log details in the case of conflict:
+    //  return 1;
     {
-      unlockfile(lockfilename);
+      char details[128];
+
+      if (get_file_details(filename2lock, details, sizeof(details)))
+      {
+        writelogfile0(LOG_CRIT, 1, tb_sprintf("File already exists and it was locked: %s %s", filename2lock, details));
+        alarm_handler0(LOG_CRIT, tb);
+      }
+
+      return 1;
+    }
+
+    if (!copymovefile(copy, filename, directory))
+    {
+      unlockfile(filename2lock);
       return 2;
     }
-    if (!unlockfile(lockfilename))
+    if (!unlockfile(filename2lock))
       return 3;
 
     if (newfilename)
-      strcpy(newfilename, lockfilename);
+      strcpy(newfilename, filename2lock);
 
     return 0;
   }
@@ -339,7 +441,10 @@ int movefilewithdestlock_new(char* filename, char* directory, int keep_fname, in
     }
     else
     {
-      unlink(filename);
+      if (!copy)
+        if (!result) // 3.1.16beta2: Do not delete in case of errors.
+          unlink(filename);
+
       if (newfilename)
         strcpy(newfilename, newname);
     }
@@ -468,10 +573,20 @@ int file_is_writable(char *filename)
   {
     if (S_ISDIR(statbuf.st_mode) == 0)
     {
-      if ((fp = fopen(filename, "a")))
+      // 3.1.17: Use access() if not under cygwin. If using inotifywait with -e close_write,
+      // testing with append causes extra events. They do not cause errors, but still use access.
+      if (!os_cygwin)
       {
-        result = 1;
-        fclose(fp);
+        if (access(filename, W_OK) == 0)
+          result = 1;
+      }
+      else
+      {
+        if ((fp = fopen(filename, "a")))
+        {
+          result = 1;
+          fclose(fp);
+        }
       }
     }
   }
@@ -544,7 +659,7 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
   // 3.1.12: Collect filenames:
   typedef struct
   {
-    char fname[NAME_MAX + 1];
+    char fname[256]; // 3.1.16beta2: was [NAME_MAX + 1]; but some systems do not define NAME_MAX.
     time_t mtime;
   } _candidate;
 
@@ -596,12 +711,11 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
       if (S_ISDIR(statbuf.st_mode) != 0) /* Is this a directory? */
         continue;
 
-      // 3.1.7:
-      //if (strcmp(tmpname + strlen(tmpname) - 5, ".LOCK") != 0)
+      // 3.1.17: should use ent->d_name, tmpname contains full path:
       i = 1;
-      if (strlen(tmpname) >= 5 && !strcmp(tmpname + strlen(tmpname) - 5, ".LOCK"))
+      if (strlen(ent->d_name) >= 5 && !strcmp(ent->d_name + strlen(ent->d_name) - 5, ".LOCK"))
         i = 0;
-      else if (!strncmp(tmpname, "LOCKED", 6))
+      else if (!strncmp(ent->d_name, "LOCKED", 6))
         i = 0;
 
       if (!i)
@@ -612,6 +726,10 @@ int getfile(int trust_directory, char *dir, char *filename, int lock)
 
       // 3.1.16beta: Skip empty files:
       if (statbuf.st_size < 8)
+        continue;
+
+      // 3.1.17: Ignore hidden files starting with a dot:
+      if (ent->d_name[0] == '.')
         continue;
 
       files_count++;
@@ -1342,50 +1460,56 @@ int getrand(int toprange)
 int is_executable(char *filename)
 {
   // access() migth do this easier, but in Gygwin it returns 0 even when requested permissions are NOT granted.
-  int result = 0;
+  int executable = 0;
   struct stat statbuf;
   mode_t mode;
   int n, i;
   gid_t *g;
 
-  if (stat(filename, &statbuf) >= 0)
+  // 3.1.20: Should also check if filename is a directory. It can be executable but it's not a script.
+  // Return value now: 0 = ok, 1 = not exists, 2 = is a directory, 3 = not executable
+
+  if (stat(filename, &statbuf) < 0)
+    return 1;
+
+  if (S_ISDIR(statbuf.st_mode))
+    return 2;
+
+  mode = statbuf.st_mode & 0755;
+
+  if (getuid())
   {
-    mode = statbuf.st_mode & 0755;
-
-    if (getuid())
+    if (statbuf.st_uid != getuid())
     {
-      if (statbuf.st_uid != getuid())
+      if ((n = getgroups(0, NULL)) > 0)
       {
-        if ((n = getgroups(0, NULL)) > 0)
+        if ((g = (gid_t *)malloc(n * sizeof(gid_t))))
         {
-          if ((g = (gid_t *)malloc(n * sizeof(gid_t))))
+          if ((n = getgroups(n, g)) > 0)
           {
-            if ((n = getgroups(n, g)) > 0)
-            {
-              for (i = 0; (i < n) & (!result); i++)
-                if (g[i] == statbuf.st_gid)
-                  result = 1;
-            }
-            free(g);
+            for (i = 0; (i < n) & (!executable); i++)
+              if (g[i] == statbuf.st_gid)
+                executable = 1;
           }
+          free(g);
         }
-
-        if (result)
-        {
-          if ((mode & 050) != 050)
-            result = 0;
-        }
-        else if ((mode & 05) == 05)
-          result = 1;
       }
-      else if ((mode & 0500) == 0500)
-        result = 1;
-    }
-    else if ((mode & 0100) || (mode & 010) || (mode & 01))
-      result = 1;
-  }
 
-  return result;
+      if (executable)
+      {
+        if ((mode & 050) != 050)
+          executable = 0;
+      }
+      else if ((mode & 05) == 05)
+        executable = 1;
+    }
+    else if ((mode & 0500) == 0500)
+      executable = 1;
+  }
+  else if ((mode & 0100) || (mode & 010) || (mode & 01))
+    executable = 1;
+
+  return (executable)? 0 : 3;
 }
 
 int check_access(char *filename)
@@ -1478,7 +1602,7 @@ int usleep_until(unsigned long long target_time)
   struct timezone tz;
   unsigned long long now;
 
-  // 3.1.16beta: Sleep more and less often to reduce CPU load (100 --> 10000 max).
+  // 3.1.16beta, 3.1.17: Sleep more and less often to reduce CPU load (100 --> 10000 max).
   for (;;)
   {
     gettimeofday(&tv, &tz);
@@ -1719,4 +1843,148 @@ int is_ok_error_0_4_answer(char *answer)
   if (is_ok_0_answer(answer) || is_error_4_answer(answer))
     return 1;
   return 0;
+}
+
+int get_file_details(char *filename, char *dest, size_t dest_size)
+{
+  struct stat statbuf;
+
+  if (dest)
+    *dest = 0;
+
+  if (stat(filename, &statbuf) == 0)
+  {
+    if (dest)
+    {
+      time_t t = statbuf.st_mtime;
+      struct tm *timeinfo;
+      char timestamp[81];
+
+      timeinfo = localtime(&t);
+      strftime(timestamp, sizeof(timestamp), datetime_format, timeinfo);
+
+      snprintf(dest, dest_size, "%s 0%o/%c%c%c%c%c%c%c%c%c%c %u %u:%u %u",
+               timestamp,
+               0777 & statbuf.st_mode,
+               (S_ISDIR(statbuf.st_mode))? 'd' : '-',
+               (statbuf.st_mode & S_IRUSR)? 'r' : '-',
+               (statbuf.st_mode & S_IWUSR)? 'w' : '-',
+               (statbuf.st_mode & S_IXUSR)? 'x' : '-',
+               (statbuf.st_mode & S_IRGRP)? 'r' : '-',
+               (statbuf.st_mode & S_IWGRP)? 'w' : '-',
+               (statbuf.st_mode & S_IXGRP)? 'x' : '-',
+               (statbuf.st_mode & S_IROTH)? 'r' : '-',
+               (statbuf.st_mode & S_IWOTH)? 'w' : '-',
+               (statbuf.st_mode & S_IXOTH)? 'x' : '-',
+               (int)statbuf.st_ino, statbuf.st_uid, statbuf.st_gid, (int)statbuf.st_size);
+    }
+
+    return 1;
+  }
+
+  return 0;
+}
+
+// 3.1.16beta2:
+int calculate_required_parts(char *text, int textlen, int *reserved, int split, int *use_get_part)
+{
+  int result = 0;
+  int chars = 0;
+
+  // text is in GSM alphabet.
+  // If more than one part is required, should not split right after esc character.
+
+  if (use_get_part)
+    *use_get_part = 0;
+
+  if (textlen <= maxsms_pdu - *reserved)
+    return 1;
+
+  if (split == 3)
+  {
+    if (*reserved == 0)
+      *reserved = 7;
+    else if (*reserved == 8)
+      *reserved = 14;
+    else
+      *reserved = 11;
+  }
+
+  while (chars < textlen)
+  {
+    chars += maxsms_pdu - *reserved;
+    if (chars <= textlen && text[chars -1] == 0x1B)
+      chars--;
+
+    result++;
+  }
+
+  if (result > 1 && use_get_part)
+    *use_get_part = 1;
+
+  return result;
+}
+
+int get_part(char **part_start, char *text, int textlen, int reserved, int part)
+{
+  int length;
+  char *start = text;
+
+  while (textlen > 0)
+  {
+    length = (textlen > maxsms_pdu -reserved)? maxsms_pdu -reserved : textlen;
+
+    if (length > 1 && start[length -1] == 0x1B)
+      length--;
+
+    textlen -= length;
+
+    if (!part)
+    {
+      if (part_start)
+        *part_start = start;
+      return length;
+    }
+
+    part--;
+    start += length;
+  }
+
+  return 0;
+}
+
+int spend_delay(int delaytime, int (*cb)(time_t *), time_t *cb_last, int cb_interval)
+{
+  if (!terminate && !break_workless_delay &&
+      delaytime > 0)
+  {
+    time_t targettime = time(0) + delaytime;
+    time_t target_cb;
+    time_t time_to_sleep;
+
+    if (*cb_last > 0 && cb_interval > 0 && *cb_last + cb_interval - time(0) > 0)
+    {
+      while (!terminate && !break_workless_delay &&
+             (target_cb = *cb_last + cb_interval) <= targettime)
+      {
+        while (!terminate && !break_workless_delay &&
+               (time_to_sleep = target_cb - time(0)) > 0)
+          sleep(time_to_sleep);
+
+        if (!terminate)
+          if (!cb(cb_last))
+            return 0;
+      }
+    }
+
+    while (!terminate && !break_workless_delay &&
+           (time_to_sleep = targettime - time(0)) > 0)
+      sleep(time_to_sleep);
+
+    if (!terminate)
+      if (!cb(cb_last))
+        return 0;
+  }
+
+  return 1;
 }

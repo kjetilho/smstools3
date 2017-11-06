@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -45,7 +44,10 @@ int lockfile( char*  filename)
       // 3.1.15:
       //snprintf(pid, sizeof(pid), "%i %s\n", (int)getpid(), DEVICE.name);
       snprintf(pid, sizeof(pid), "%i %s\n", (int)getpid(),
-               (process_id == -1) ? "MAINPROCESS" : DEVICE.name);
+               // 3.1.18: Use process_title now when there are other process_id's below 0,
+               // even when CHILD or NOTIFIER do not use lockfiles (at least currently):
+               //(process_id == -1) ? "MAINPROCESS" : DEVICE.name);
+               process_title);
 
       write(lockfile, pid, strlen(pid));
       // 3.1.16beta: Fix: Use fsync instead of sync after close:
@@ -54,6 +56,7 @@ int lockfile( char*  filename)
       return 1;
     }
   }
+
   return 0;
 }
 

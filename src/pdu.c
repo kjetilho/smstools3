@@ -3,8 +3,7 @@ SMS Server Tools 3
 Copyright (C) 2006- Keijo Kasvi
 http://smstools3.kekekasvi.com/
 
-Based on SMS Server Tools 2 from Stefan Frings
-http://www.meinemullemaus.de/
+Based on SMS Server Tools 2, http://stefanfrings.de/smstools/
 SMS Server Tools version 2 and below are Copyright (C) Stefan Frings.
 
 This program is free software unless you got it under another license directly
@@ -220,6 +219,10 @@ int set_numberformat(int *numberformat, char *number, int number_type)
 {
   int nf = NF_INTERNATIONAL;
   char *p;
+  int nf_national = NF_NATIONAL; // 3.1.16beta2.
+
+  if (DEVICE.national_toa_unknown == 1)
+    nf_national = NF_UNKNOWN;
 
   if (numberformat)
     nf = *numberformat;
@@ -240,7 +243,7 @@ int set_numberformat(int *numberformat, char *number, int number_type)
       while (*p);
 
       if (!(*p))
-        nf = NF_NATIONAL;
+        nf = nf_national;
     }
     
     if (nf == NF_INTERNATIONAL)
@@ -253,7 +256,7 @@ int set_numberformat(int *numberformat, char *number, int number_type)
         {
           if (!strncmp(number, p, strlen(p)))
           {
-            nf = NF_NATIONAL;
+            nf = nf_national;
             break;
           }
           p += strlen(p) +1;
@@ -291,9 +294,30 @@ int set_numberformat(int *numberformat, char *number, int number_type)
 // flash_sms enables the flash flag.
 // mode select the pdu version (old or new).
 // if udh is true, then udh_data contains the optional user data header in hex dump, example: "05 00 03 AF 02 01"
-
-void make_pdu(char* number, char* message, int messagelen, int alphabet, int flash_sms, int report, int with_udh,
-              char* udh_data, char* mode, char* pdu, int validity, int replace_msg, int system_msg, int number_type, char *smsc)
+void make_pdu(
+  char *number,
+  char *message,
+  int messagelen,
+  int alphabet,
+  int flash_sms,
+  int report,
+  int with_udh,
+  char *udh_data,
+  char *mode,
+  char *pdu,
+  int validity,
+  int replace_msg,
+  int system_msg,
+  int number_type,
+  char *smsc,
+  // 3.1.16beta2:
+  int message_reference,
+  int reject_duplicates,
+  int reply_path,
+  int sms_class,
+  int tp_dcs,
+  int ping
+)
 {
   int coding;
   int flags;
@@ -345,18 +369,50 @@ void make_pdu(char* number, char* message, int messagelen, int alphabet, int fla
     flags+=16; // Validity field
   if (report>0)
     flags+=32; // Request Status Report
+  if (reject_duplicates)
+    flags += 4;
+  if (reply_path)
+    flags += 128;
 
-  if (alphabet == 1)
+  if (alphabet == ALPHABET_BINARY)
     coding = 4; // 8bit binary
-  else if (alphabet == 2)
+  else if (alphabet == ALPHABET_UCS2)
     coding = 8; // 16bit
   else
     coding = 0; // 7bit
+
   if (flash_sms > 0)
     coding += 0x10; // Bits 1 and 0 have a message class meaning (class 0, alert)
+  else
+  {
+    // 3.1.16beta2. Invalid values for class are just ignored.
+    // Note: system_msg will override "Alphabet", "Flash" and "Class" settings.
+    switch (sms_class)
+    {
+      case 0:                  // Immediate display (alert)
+        coding += 0x10;
+        break;
+
+      case 1:                  // ME specific
+        coding += 0x11;
+        break;
+
+      case 2:                  // SIM specific
+        coding += 0x12;
+        break;
+
+      case 3:                  // TE specific
+        coding += 0x13;
+        break;
+    }
+  }
+
+  // 3.1.16beta2: tp_dcs overrides all but system_msg:
+  if (tp_dcs >= 0 && tp_dcs <= 0xFF)
+    coding = tp_dcs;
 
   /* Create the PDU string of the message */
-  if (alphabet==1 || alphabet==2 || system_msg)
+  if (alphabet == ALPHABET_BINARY || alphabet == ALPHABET_UCS2 || system_msg)
   {
     // Unicode message can be concatenated:
     //if (alphabet == 2 && with_udh)
@@ -399,11 +455,9 @@ void make_pdu(char* number, char* message, int messagelen, int alphabet, int fla
       }
     }
     else if (replace_msg >= 1 && replace_msg <= 7)
-       proto = 0x40 + replace_msg;
-
-    //sprintf(pdu, "00%02X00%02X%02X%s%02X%02X%02X%02X", flags, numberlength, numberformat, tmp,
-    // (system_msg) ? 0x40 : (replace_msg >= 1 && replace_msg <= 7) ? 0x40 + replace_msg : 0,
-    // (system_msg) ? 0xF4 : coding, validity, messagelen);
+      proto = 0x40 + replace_msg;
+    else if (ping)
+      proto = 0x40;
 
     // 3.1.12:
     //sprintf(pdu, "00%02X00%02X%02X%s%02X%02X%02X%02X", flags, numberlength, numberformat, tmp, proto, coding, validity, messagelen);
@@ -411,7 +465,12 @@ void make_pdu(char* number, char* message, int messagelen, int alphabet, int fla
       sprintf(pdu, "%02X%s%s", (int)strlen(tmp_smsc) / 2 + 1, (tmp_smsc[1] == '0')? "81": "91", tmp_smsc);
     else
       strcpy(pdu, "00");
-    sprintf(strchr(pdu, 0), "%02X00%02X%02X%s%02X%02X%02X%02X", flags, numberlength, numberformat, tmp, proto, coding, validity, messagelen);
+
+    if (message_reference < 0 || message_reference > 255)
+      message_reference = 0;
+
+    sprintf(strchr(pdu, 0), "%02X%02X%02X%02X%s%02X%02X%02X%02X", flags, message_reference,
+            numberlength, numberformat, tmp, proto, coding, validity, messagelen);
   }
 
   /* concatenate the text to the PDU string */
@@ -624,13 +683,15 @@ int explain_udh(char *udh_type, char *pdu)
       case 0x21: p = "Hyperlink format element"; break;
       case 0x22: p = "Reply Address Element"; break;
       case 0x23: p = "Enhanced Voice Mail Information"; break;
+      case 0x24: p = "Single Shift Character Set information"; break;
+      case 0x25: p = "Locking Shift Character Set information"; break;
     }
 
     if (!p)
     {
       if (i >= 0x1B && i <= 0x1F)
         p = "Reserved for future EMS features";
-      else if (i >= 0x24 && i <= 0x6F)
+      else if (i >= 0x26 && i <= 0x6F)
         p = "Reserved for future use";
       else if (i >= 0x70 && i <= 0x7F)
         p = "(U)SIM Toolkit Security Headers";
@@ -1428,7 +1489,13 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
 
             if (!(*err_str))
             {
-              sprintf(strchr(result, 0), "Discharge_timestamp: %s", temp);
+              char buffer[128];
+
+              // 3.1.20: If custom datetime_format is defined, use it for Discharge_timestamp:
+              temp[8] = '\0';
+              make_datetime_string(buffer, sizeof(buffer), temp, temp +9, 0);
+              sprintf(strchr(result, 0), "Discharge_timestamp: %s", buffer);
+
               if (strlen(Src_Pointer) < 2)
                 pdu_error(err_str, 0, Src_Pointer -full_pdu, 2, "While trying to read Status octet: %s", err_too_short);
               else
@@ -1438,8 +1505,6 @@ int split_type_2(char *full_pdu, char* Src_Pointer,char* sendr, char* date,char*
                   pdu_error(err_str, 0, Src_Pointer -full_pdu, 2, "Invalid Status octet: \"%.2s\"", Src_Pointer);
                 else
                 {
-                  char buffer[128];
-
                   explain_status(buffer, sizeof(buffer), status);
                   sprintf(strchr(result, 0), "\n%s %i,%s", SR_Status, status, buffer);
                 }
@@ -1658,12 +1723,8 @@ int splitpdu(char *pdu, char *mode, int *alphabet, char *sendr, char *date, char
                 else
                 {
                   memcpy(ascii, message, message_length);
-#ifndef USE_ICONV
-                  ascii[message_length] = 0;
-                  i = decode_ucs2(ascii, message_length);
-#else
-                  i = (int)iconv_ucs2utf(ascii, message_length, sizeof(ascii));
-#endif
+                  ucs2utf(ascii, message_length, sizeof(ascii));
+                  i = iso_utf8chars(ascii);
                   expected_length /= 2;
                 }
 
@@ -1884,4 +1945,79 @@ void sort_pdu_details(char *dest)
   count = strlen(dest) / LENGTH_PDU_DETAIL_REC;
   if (count > 1)
     qsort((void *)dest, count, LENGTH_PDU_DETAIL_REC, sort_pdu_helper);
+}
+
+int read_pdu_text(char *pdu, size_t pdu_size, char *text)
+{
+  int result = 1;
+  size_t src = 0;
+  size_t dst = 0;
+
+  if (!strncasecmp(pdu, "PDU:", 4))
+    src = 4;
+
+  while (text[src])
+  {
+    if (isXdigit(text[src]))
+    {
+      if (dst >= pdu_size -1)
+      {
+        result = 0;
+        break;
+      }
+
+      pdu[dst++] = text[src];
+    }
+
+    src++;
+  }
+
+  pdu[dst] = '\0';
+
+  return result;
+}
+
+int get_pdu_submit_to(char *to, size_t to_size, char *pdu)
+{
+  int result = 0;
+  char *p = pdu;
+  char *end = pdu + strlen(pdu);
+  int len;
+  char phone[SIZE_TO];
+  int i;
+
+  if ((len = octet2bin_check(p)) >= 0)
+  {
+    for (p += 2; len > 0; len--)
+      p += 2;
+
+    if (p < end && (i = octet2bin_check(p)) > 0 && (i & 0x03) == 0x01)
+    {
+      if ((p += 4) < end && (len = octet2bin_check(p)) >= 2 && (p += 4) < end)
+      {
+        if (len % 2)
+          len++;
+
+        if (len < (int)sizeof(phone))
+        {
+          for (i = 0; i < len; i++)
+            phone[i] = p[i];
+
+          phone[i] = '\0';
+          swapchars(phone);
+
+          if (phone[--i] == 'F')
+            phone[i] = '\0';
+
+          if (strlen(phone) < to_size)
+          {
+            strcpy(to, phone);
+            result = 1;
+          }
+        }
+      }
+    }
+  }
+
+  return result;
 }

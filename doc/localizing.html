@@ -1,6 +1,6 @@
 <html>
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <META NAME="Title" CONTENT="SMS Server Tools 3">
     <META NAME="Robots" CONTENT="INDEX,FOLLOW">
     <META NAME="Language" CONTENT="English">
@@ -52,9 +52,11 @@ Character set used in the language file should match to the locale setting used 
 which creates outgoing message files. This is very important when UTF-8 is used as a locale, because
 byte sequences of special characters should match. Because of this, there is two versions of finnish
 translation available in the <i>examples</i> directory: <b>language-ISO-8859-15.fi</b> and <b>language-UTF-8.fi</b>.
+NOTE: those translations are from 2007 version of smsd, and not updated which means that all current headers are
+not presented in those files. Headers listed in this page are from the version 3.1.16 (released 2017).
 </p>
 <p>
-Headers written using Unicode are not currently supported.
+Headers written using Unicode (UCS2) are not currently supported.
 If you are interested to use Unicode headers, please contact the author.
 </p>
 <p>
@@ -66,29 +68,35 @@ If there are syntactical failures, an error message is produced and the smsd doe
 <p>
 First, some general settings are available:
 <table border=1 bgcolor=lightgrey>
-  <tr><td bgcolor=yellow valign=top>incoming</td>
-      <td>yes/no. Default: yes. Defines if incoming message files are written using localized headers.</td>
-  </tr>
+
   <tr><td bgcolor=yellow valign=top>datetime</td>
       <td>format string. Can be used to localize timestamp format.<br>
       For example: <b>datetime = %d.%m.%Y %H:%M:%S</b> produces <b>14.08.2007 12:34:56</b>.<br>
       See <i>man strftime</i> for more details.</td>
   </tr>
-  <tr><td bgcolor=yellow valign=top>yes_word</td>
-      <td>Defines a word to be used when smsd writes "yes" word to the file, like "kyllä".</td>
+
+  <tr><td bgcolor=yellow valign=top>incoming</td>
+      <td>yes/no. Default: yes. Defines if incoming message files are written using localized headers.</td>
   </tr>
+
+  <tr><td bgcolor=yellow valign=top>no_chars</td>
+      <td>Used like yes_chars.</td>
+  </tr>
+
   <tr><td bgcolor=yellow valign=top>no_word</td>
       <td>Used like yes_word.</td>
   </tr>
+
   <tr><td bgcolor=yellow valign=top>yes_chars</td>
       <td>Define one or more character sequences (or byte sequences if using UTF-8) which means "yes" as the input value.<br>
       Sequence should be inside apostrophes and sequences are delimited using comma.<br>
       For example in finnish, "yes" can be defined using: <b>yes_chars = 'K','k'</b>.
       </td>
   </tr>
-  <tr><td bgcolor=yellow valign=top>no_chars</td>
-      <td>Used like yes_chars.</td>
+  <tr><td bgcolor=yellow valign=top>yes_word</td>
+      <td>Defines a word to be used when smsd writes "yes" word to the file, like "kyllÃ¤".</td>
   </tr>
+
 </table>
 </p>
 
@@ -106,117 +114,221 @@ Some headers cannot be omitted, those cases are market to the list.
 </p>
 <p>
 <table border=1 bgcolor=lightgrey>
-  <tr><td bgcolor=yellow valign=top>To:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>From:</td>
-      <td>Msg file input: informative. Incoming message: senders address.<br>
-      Cannot be omitted.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Flash:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Provider:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Queue:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Binary:</td>
-      <td> Msg file input (sets alphabet to 1 or 0).</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Report:</td>
-      <td>Msg file input. Incoming message: report was asked yes/no.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Autosplit:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Validity:</td>
-      <td>Msg file input.<br>
-      Note that if word values are used, they should be written using english.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Voicecall:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Replace:</td>
-      <td>Msg file input. Incoming message: exists with code if replace code was defined.</td>
-  </tr>
+
   <tr><td bgcolor=yellow valign=top>Alphabet:</td>
       <td>Msg file input. Incoming message.</td>
   </tr>
-  <tr><td bgcolor=yellow valign=top>Include:</td>
+
+  <tr><td bgcolor=yellow valign=top>Autosplit:</td>
       <td>Msg file input.</td>
   </tr>
-  <tr><td bgcolor=yellow valign=top>Macro:</td>
-      <td>Msg file input.</td>
+
+  <tr><td bgcolor=yellow valign=top>Binary:</td>
+      <td> Msg file input (sets alphabet to 1 or 0).</td>
   </tr>
-  <tr><td bgcolor=yellow valign=top>Hex:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>SMSC:</td>
-      <td>Msg file input.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Priority:</td>
-      <td>Msg file input.<br>
-      With this header a value HIGH can be used and also localized "yes" meaning will work (defined using yes_chars).</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Sent:</td>
-      <td>Outgoing timestamp. Incoming: senders date & time (from PDU).</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Modem:</td>
-      <td>Sent message, device name (=modemname).</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>From_TOA:</td>
-      <td>Incoming message: senders Type Of Address.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>From_SMSC:</td>
-      <td>Incoming message: senders SMSC.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Name:</td>
-      <td>Incoming message: name from the modem response (???).</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Received:</td>
-      <td>Incoming message timestamp.<br>
-      Cannot be omitted.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Subject:</td>
-      <td>Incoming message, modemname.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>UDH-Type:</td>
-      <td>Incoming message, type(s) of content of UDH if present.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Length:</td>
-      <td>Incoming message, text/data length.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Fail_reason:</td>
-      <td>Failed outgoing message (currently only spooling uses this).</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>IMSI:</td>
-      <td>Incoming / Sent (or failed) message, identification code if supported.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Message_id:</td>
-      <td>Sent (successfully) message.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Original_filename:</td>
-      <td>Stored when moving file from outgoing directory and unique filenames are used in the spooler.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>Call_type:</td>
-      <td>Incoming message from phonebook.</td>
-  </tr>
-  <tr><td bgcolor=yellow valign=top>missed</td>
-      <td>Incoming call type. Note: this is a value.<br>
-      Cannot be omitted.</td>
-  </tr>
+
   <tr><td bgcolor=yellow valign=top>CALL MISSED</td>
       <td>Incoming call, written to the message body.<br>
       Cannot be omitted.</td>
   </tr>
-  <tr><td bgcolor=yellow valign=top>Result:</td>
-      <td>Voicecall. Result string from a modem.</td>
+
+  <tr><td bgcolor=yellow valign=top>Call_type:</td>
+      <td>Incoming message from phonebook.</td>
   </tr>
+
+  <tr><td bgcolor=yellow valign=top>Class:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>DCS_hex:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Description:</td>
+      <td>Written to all message files..</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Fail_reason:</td>
+      <td>Failed outgoing message (currently only spooling uses this).</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Failed:</td>
+      <td>Timestamp for failed message.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Flash:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>From:</td>
+      <td>Msg file input: informative. Incoming message: senders address.<br>
+      Cannot be omitted.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>From_SMSC:</td>
+      <td>Incoming message: senders SMSC.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>From_TOA:</td>
+      <td>Incoming message: senders Type Of Address.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Hex:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>IMEI:</td>
+      <td>Incoming / Sent (or failed) message.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>IMSI:</td>
+      <td>Incoming / Sent (or failed) message, identification code if supported.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Include:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Incomplete:</td>
+      <td>Incoming message.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Language:</td>
+      <td>Msg file input, incoming message.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Language_ext:</td>
+      <td>Msg file input, incoming message.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Length:</td>
+      <td>Incoming message, text/data length.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Macro:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Message_id:</td>
+      <td>Sent (successfully) message.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Message_reference:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>missed</td>
+      <td>Incoming call type. Note: this is a value.<br>
+      Cannot be omitted.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Modem:</td>
+      <td>Sent message, device name (=modemname).</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Name:</td>
+      <td>Incoming message: name from the modem response (???).</td>
+  </tr>
+
   <tr><td bgcolor=yellow valign=top>Number:</td>
       <td>SIM card's telephone number (if defined in the config file).</td>
   </tr>
+
+  <tr><td bgcolor=yellow valign=top>Original_filename:</td>
+      <td>Stored when moving file from outgoing directory and unique filenames are used in the spooler.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Ping:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Priority:</td>
+      <td>Msg file input.<br>
+      With this header a value HIGH can be used and also localized "yes" meaning will work (defined using yes_chars).</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Provider:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Received:</td>
+      <td>Incoming message timestamp.<br>
+      Cannot be omitted.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Reject_duplicates:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Replace:</td>
+      <td>Msg file input. Incoming message: exists with code if replace code was defined.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Reply_path:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Report:</td>
+      <td>Msg file input. Incoming message: report was asked yes/no.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Result:</td>
+      <td>Voicecall. Result string from a modem.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Retries:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Sending_time:</td>
+      <td>Outgoing time.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Sent:</td>
+      <td>Outgoing timestamp. Incoming: senders date & time (from PDU).</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>SMSC:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Subject:</td>
+      <td>Incoming message, modemname.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>System_message:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Text_is_pdu:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>To:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>To_TOA:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>UDH-Type:</td>
+      <td>Incoming message, type(s) of content of UDH if present.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Validity:</td>
+      <td>Msg file input.<br>
+      Note that if word values are used, they should be written using english.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Voicecall:</td>
+      <td>Msg file input.</td>
+  </tr>
+
+  <tr><td bgcolor=yellow valign=top>Queue:</td>
+      <td>Msg file input.</td>
+  </tr>
+
 </table>
 </p>
 
