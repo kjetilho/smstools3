@@ -14,6 +14,12 @@ CFLAGS += -D NOSTATS
 # Uncomment this to disable usage of inotify
 #CFLAGS += -D DISABLE_INOTIFY
 
+# Uncomment for FreeBSD if statistics are enabled
+#CFLAGS += -I/usr/local/include
+
+# Uncomment for FreeBSD if inotify is used
+#LFLAGS += -L/usr/local/lib -linotify
+
 # Uncomment this to force smsd to run in terminal mode
 #CFLAGS += -D TERMINAL
 

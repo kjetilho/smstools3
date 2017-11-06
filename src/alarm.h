@@ -24,6 +24,11 @@ void set_alarmhandler(char* handler,int level);
 
 // calls the alarm handler
 void alarm_handler0(int severity, char *text);
+
+#ifdef __GNUC__
+void alarm_handler(int severity, char* format, ...) __attribute__ ((format(printf, 2, 3)));
+#else
 void alarm_handler(int severity, char* format, ...);
+#endif
 
 #endif

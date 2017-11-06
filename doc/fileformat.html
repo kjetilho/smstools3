@@ -108,7 +108,7 @@ The program checks only the first 3 characters of that line, therefore keywords 
 <p>
 <b>NOTE the difference of ISO and UTF-8 in version >= 3.1.16:</b>
 </p><p>
-Handling of alphabets is enhanced and all conversion are now done using internal routines
+Handling of alphabets is enhanced and all conversions are now done using internal routines
 which work well with cyrillic languages too.
 For backward compatibility, the alphabet of message file still defaults to ISO-8859-15,
 and this can be changed to UTF-8 in the configuration, or a header <i>Alphabet: UTF</i>
@@ -497,7 +497,7 @@ Available from >= 3.1.20.
 </table>
 
 <p>
-<h3>Binary data</h3>
+<a name="binary_data"><h3>Binary data</h3></a>
 <p>
 The data begins after the empty line and goes until end of file. No conversion is applied to the data. 
 <p>
@@ -515,11 +515,13 @@ hwer32873g&amp;%§=)(/&amp;%$%&amp;/(/&amp;%$§%&amp;hdsgrwwq(/&amp;%$fgzw543t43g5
 </font>
 </TD></TR></table>
 <p>
-Another example, available from version >= 3.0:
+<a name="wap_push">
+Another example, Wap Push with Hex presentation, available from version >= 3.0:
+</a>
 <p>
 <table border=1 bgcolor=lightgrey><TR><TD>
 <font face="Courier New, Courier, monospace">
-To: 491721234567<br>
+To: 358401234567<br>
 Alphabet: binary<br>
 Hex: yes<br>
 <br>
@@ -542,9 +544,9 @@ AE : Push Header Content-Type: application/vnd.wap.sic 0x2E | 0x80<br>
 <br>
 02 : WBXML version 1.2<br>
 05 : SL 1.0 Public Identifier<br>
-04 : Charset = iso-8859-1<br>
+04 : Charset=ISO-8859-1<br>
 00 : String table length<br>
-45 : s1, with content<br>
+45 : si, with content<br>
 C6 : indication, with content and attributes<br>
 0D : Token for "href=http://www."<br>
 ### There should not be extra spaces after keyword:<br>
@@ -566,6 +568,44 @@ http://www.openmobilealliance.org/tech/affiliates/wap/wapindex.html</a><br>
 </font>
 </TD></TR></table>
 <p>
+
+<p>
+<a name="wap_push_macros_include">
+Example of Wap Push with Macros and Include file:
+</a>
+<p>
+In this example message body is the same for all messages, and it is saved as different file.
+This file is included to the file which is sent by smstools. Macros are used.
+Outgoing file contains only headers which are mandatory, and <u>no message body at all</u>.
+<p>
+File: /var/spool/sms/outgoing/wap_push1
+<table border=1 bgcolor=lightgrey><TR><TD>
+<font face="Courier New, Courier, monospace">
+To: 358401234567<br>
+Macro: <b>@URL@</b>=smstools3.kekekasvi.com/board.php<br>
+Macro: <b>@TEXT@</b>=Visit the SMS Server Tools 3 forum.<br>
+Include: /var/spool/sms/include/wap_push_service1<br>
+</font>
+</TD></TR></table>
+<p>
+File: /var/spool/sms/include/wap_push_service1
+<table border=1 bgcolor=lightgrey><TR><TD>
+<font face="Courier New, Courier, monospace">
+Alphabet: binary<br>
+Hex: yes<br>
+<br>
+06 05 04 0B 84 23 F0 01 06 01 AE 02 05<br>
+6A : Charset=UTF-8 (MIBEnum 106)<br>
+00 45 C6<br>
+0C : Token for "href=http://"<br>
+INLINESTRING:<b>@URL@</b><br>
+11<br>
+INLINESTRING:1<br>
+01<br>
+INLINESTRING:<b>@TEXT@</b><br>
+01 01<br>
+</font>
+</TD></TR></table>
 
 <h3>Received messages</h3>
 <p>

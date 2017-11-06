@@ -62,6 +62,115 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
 
 <h3>Version history</h3>
 
+<b>03.05.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.21</b>
+
+<p>Configuration file (smsd.conf):</p>
+<ol start=1>
+
+<li><p>Added several modem settings for checking the SIM:</p>
+
+<p>
+<i><b><a name="m_check_sim">check_sim</a> = yes/no / once</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+If the device and smsd are started before the SIM is inserted to the device,
+communication will fail and modem process stops.
+With some devices modem process can wait until the SIM becomes ready.
+</p>
+<p>
+A setting <i>check_sim</i> defines if the SIM is checked every time when a modem is initialized.
+Value <i>once</i> means that checking is only done when a modem is initialized for the first time.
+</p>
+<p>
+All devices are not compatible with this feature.
+Some tested devices, like Huawei E353 and Neoway M590E do not work if the SIM is not in place
+when a device is switched on. Telit EZ-10 worked well and any reset was not required.
+SIM800L also worked well, but RADIO_OFF_ON was required.
+Some devices like M590E stop the communication if the radio is switched off, so that
+kind of reset cannot be used.
+If this feature is going to be used, carefull tests should be done.
+</p>
+<p>
+When an error with SIM is detected, modem port is closed while modem process is waiting.
+USB modem can be disconnected and reconnected, if the port remains the same.
+</p>
+
+<p>
+<i><b><a name="m_check_sim_cmd">check_sim_cmd</a> = string</b></i><br>
+<font size="1">Default value: <i>AT+CPIN?</i>.</font><br>
+Defines a command which is used to check the SIM.
+Default value <i>AT+CPIN?</i> is suitable for most devices.
+The command should return ERROR when the SIM is not ready.
+</p>
+
+<p>
+<i><b><a name="m_check_sim_keep_open">check_sim_keep_open</a> = yes/no</b></i><br>
+<font size="1">Default value: <i>no</i>.</font><br>
+Defines if a modem is closed when SIM was not ready and modem process is waiting for retrying.
+</p>
+
+<p>
+<i><b><a name="m_check_sim_reset">check_sim_reset</a> = string / RADIO_OFF_ON / RADIO_OFF_ON_SLOW</b></i><br>
+<font size="1">Default value: <i>not used</i>.</font><br>
+Defines if reset with AT commands is done before retrying after the failure.
+Special value <i>RADIO_OFF_ON</i> is translated  to <b>AT+CFUN=0;+CFUN=1</b> which sets the
+radio off and immediately back to on without delays.
+Value <i>RADIO_OFF_ON_SLOW</i> is translated to <b>AT+CFUN=0[3]AT+CFUN=1[5]</b> where numbers
+in square brackets defines a delay in seconds. This setting sets the radio off, waits three 
+seconds, sets the radio back on and waits five seconds.
+</p>
+
+<p>
+<i><b><a name="m_check_sim_retries">check_sim_retries</a> = number / forever</b></i><br>
+<font size="1">Default value: <i>10</i>.</font><br>
+Defines how many times modem process will retry.
+With a value <i>forever</i> modem process will retry, let's say, forever.
+</p>
+
+<p>
+<i><b><a name="m_check_sim_wait">check_sim_wait</a> = number</b></i><br>
+<font size="1">Default value: <i>30</i>.</font><br>
+Defines how many seconds modem process will wait until retry.
+</p>
+</li>
+
+</ol>
+
+<p>General:</p>
+<ol start=2>
+  <li><p>
+    The script <b>sendsms</b> now tries to change the group of outgoing file
+    instead of owner which can be changed only by root.
+    Attributes of a file are set to 0660.
+  </p></li>
+</ol>
+
+<p>Bug fixes:</p>
+<ol start=3>
+  <li><p>
+    After a message was sent, modem process crashed on FreeBSD running on Raspberry Pi,
+    because time to send was written inproperly to the log file (time_t vs. integer).
+    This is fixed and similar missing typecasts are added to couple of other places too.
+  </p></li>
+  <li><p>
+    If the USSD answer was received from the modem in more than one pieces,
+    only the first piece was handled and the result was broken. This is fixed by
+    waiting for the last quotation mark and comma which are very near to the end of
+    answer.
+  </p></li>
+  <li><p>
+    Pre-initialization did not work with all modems.
+    "Echo off" and extended commands are not combined anymore.
+    If <i>pre_init</i> is set to <i>no</i>, "echo off" and "CMEE=1" are not sent
+    to the modem, but "CLIP=1" and/or "CREG=2" are still sent if necessary.
+  </p></li>
+</ol>
+
+<p>
+<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
+</p>
+
+<hr>
+
 <b>11.04.2017&nbsp;&nbsp;&nbsp;&nbsp;3.1.20</b>
 
 <p>Sent message file:</p>
@@ -134,10 +243,6 @@ to <a href="http://smstools3.kekekasvi.com?p=support">SMSTools3 Community</a> wh
     was defined in the configuration file. This is fixed.
   </p></li>
 </ol>
-
-<p>
-<a href="http://smstools3.kekekasvi.com/packages/">Download</a>
-</p>
 
 <hr>
 
@@ -429,7 +534,7 @@ measured by device. There is a setting <i>log_read_timing</i> available for tuni
 </p>
 <br>
 <p>
-Handling of alphabets is enhanced and all conversion are now done using internal routines
+Handling of alphabets is enhanced and all conversions are now done using internal routines
 which work well with cyrillic languages too.
 For backward compatibility, the alphabet of message file still defaults to ISO-8859-15,
 and this can be changed to UTF-8 in the configuration, or a header <i>Alphabet: UTF</i>

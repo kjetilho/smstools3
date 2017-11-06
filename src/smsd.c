@@ -1908,8 +1908,8 @@ int spool1sms()
     i = run_checkhandler(filename);
     if (i == 1)
     {
-      writelogfile(LOG_NOTICE, 0, tb_sprintf("SMS file %s rejected by checkhandler", filename));
-      alarm_handler(LOG_NOTICE, tb);
+      writelogfile0(LOG_NOTICE, 0, tb_sprintf("SMS file %s rejected by checkhandler", filename));
+      alarm_handler0(LOG_NOTICE, tb);
       fail_text = "Rejected by checkhandler";
     }
     else
@@ -1936,44 +1936,44 @@ int spool1sms()
       // Is the destination set?
       if (to[0]==0)
       {
-        writelogfile(LOG_NOTICE, 0, tb_sprintf("No destination in file %s", filename));
-        alarm_handler(LOG_NOTICE, tb);
+        writelogfile0(LOG_NOTICE, 0, tb_sprintf("No destination in file %s", filename));
+        alarm_handler0(LOG_NOTICE, tb);
         fail_text = "No destination";
       }
       // is To: in the blacklist?
       else if (inblacklist(to))
       {
-        writelogfile(LOG_NOTICE, 0, tb_sprintf("Destination %s in file %s is blacklisted", to, filename));
-        alarm_handler(LOG_NOTICE, tb);
+        writelogfile0(LOG_NOTICE, 0, tb_sprintf("Destination %s in file %s is blacklisted", to, filename));
+        alarm_handler0(LOG_NOTICE, tb);
         fail_text = "Destination is blacklisted";
       }
       // Whitelist can also set the queue.
       // is To: in the whitelist?
       else if (!inwhitelist_q(to, queuename))
       {
-        writelogfile(LOG_NOTICE, 0, tb_sprintf("Destination %s in file %s is not whitelisted", to, filename));
-        alarm_handler(LOG_NOTICE, tb);
+        writelogfile0(LOG_NOTICE, 0, tb_sprintf("Destination %s in file %s is not whitelisted", to, filename));
+        alarm_handler0(LOG_NOTICE, tb);
         fail_text = "Destination is not whitelisted";
       }
       // Is the alphabet setting valid?
       else if (alphabet > ALPHABET_UTF8)
       {
-        writelogfile(LOG_NOTICE, 0, tb_sprintf("Invalid alphabet in file %s", filename));
-        alarm_handler(LOG_NOTICE, tb);
+        writelogfile0(LOG_NOTICE, 0, tb_sprintf("Invalid alphabet in file %s", filename));
+        alarm_handler0(LOG_NOTICE, tb);
         fail_text = "Invalid alphabet";
       }
       // is there is a queue name, then set the queue by this name
       else if ((queuename[0]) && ((queue=getqueue(queuename,directory))==-1))
       {
-        writelogfile(LOG_NOTICE, 0, tb_sprintf("Wrong provider queue %s in file %s", queuename, filename));
-        alarm_handler(LOG_NOTICE, tb);
+        writelogfile0(LOG_NOTICE, 0, tb_sprintf("Wrong provider queue %s in file %s", queuename, filename));
+        alarm_handler0(LOG_NOTICE, tb);
         fail_text = "Wrong provider queue";
       }
       // if there is no queue name, set it by the destination phone number
       else if ((queuename[0]==0) && ((queue=getqueue(to,directory))==-1))
       {
-        writelogfile(LOG_NOTICE, 0, tb_sprintf("Destination number %s in file %s does not match any provider", to, filename));
-        alarm_handler(LOG_NOTICE, tb);
+        writelogfile0(LOG_NOTICE, 0, tb_sprintf("Destination number %s in file %s does not match any provider", to, filename));
+        alarm_handler0(LOG_NOTICE, tb);
         fail_text = "Destination number does not match any provider";
       }
       // If a file has no text or data, it can be rejected here.
@@ -2100,8 +2100,8 @@ void log_check_pid()
 
   if ((i = check_pid(pidfile)))
   {
-    writelogfile(LOG_ERR, 1, tb_sprintf("FATAL ERROR: Looks like another smsd (%i) is running. I (%i) quit now.", i, (int)getpid()));
-    alarm_handler(LOG_ERR, tb);
+    writelogfile0(LOG_ERR, 1, tb_sprintf("FATAL ERROR: Looks like another smsd (%i) is running. I (%i) quit now.", i, (int)getpid()));
+    alarm_handler0(LOG_ERR, tb);
     *pidfile = 0;
     abnormal_termination(1);
   }
@@ -4185,7 +4185,8 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
     STATISTICS->usage_s+=time(0)-start_time;
     STATISTICS->succeeded_counter++;
 
-    writelogfile(LOG_NOTICE, 0, "SMS sent, Message_id: %s, To: %s, sending time %i sec.", messageids, to, time(0) -start_time);
+    // 3.1.21: Fixed time_t argument to int.
+    writelogfile(LOG_NOTICE, 0, "SMS sent, Message_id: %s, To: %s, sending time %i sec.", messageids, to, (int)(time(0) -start_time));
 
     flush_smart_logging();
 
@@ -4234,7 +4235,8 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
                   }
                   else
                   {
-                    writelogfile(LOG_ERR, 1, "Verify PDU: ERROR (pos: %s)", src);
+                    // 3.1.21: Fixed pos: format from %s to &i:
+                    writelogfile(LOG_ERR, 1, "Verify PDU: ERROR (pos: %i)", src);
                     writelogfile(LOG_ERR, 1, "Verify PDU: -> %s", buffer);
                     writelogfile(LOG_ERR, 1, "Verify PDU: <- %s", answer);
                     break;
@@ -4320,7 +4322,8 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
         *answer = 0;
         if (retry_count > 0)
           snprintf(answer, sizeof(answer), " Retries: %i.", retry_count);
-        writelogfile(LOG_NOTICE, 0, "SMS sent%s, Message_id: %s%s, To: %s, sending time %i sec.%s", partstr, tmpid, replacestr, to, time(0) -start_time, answer);
+        // 3.1.21: Fixed time_t argument to int.
+        writelogfile(LOG_NOTICE, 0, "SMS sent%s, Message_id: %s%s, To: %s, sending time %i sec.%s", partstr, tmpid, replacestr, to, (int)(time(0) -start_time), answer);
 
         // 3.1.1:
         update_message_counter(1, DEVICE.name);
@@ -4391,7 +4394,8 @@ int send_part(char* from, char* to, char* text, int textlen, int alphabet, int w
         {
           STATISTICS->usage_s += time(0) - start_time;
           STATISTICS->failed_counter++;
-          writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed, trying time %i sec. Retries: %i.", partstr, to, time(0) - start_time, retry_count - 1));
+          // 3.1.21: Fixed time_t argument to int.
+          writelogfile0(LOG_WARNING, 1, tb_sprintf("Sending SMS%s to %s failed, trying time %i sec. Retries: %i.", partstr, to, (int)(time(0) - start_time), retry_count - 1));
           alarm_handler0(LOG_WARNING, tb);
           flush_smart_logging();
           return result;
@@ -4727,7 +4731,7 @@ int send1sms(int* quick, int* errorcounter)
             }
 
             tb_sprintf("NOTICE: %i characters outside the GSM alphabet, converting to UCS2", missing);
-            writelogfile(LOG_INFO, 0, tb + 8);
+            writelogfile0(LOG_INFO, 0, tb + 8);
 
             if (DEVICE.notice_ucs2)
               strcat_realloc(&charconv_notice, tb, "\n");
@@ -5854,287 +5858,256 @@ void send_admin_message(int *quick, int *errorcounter, char *text)
    Device-Spooler (one for each modem)
    ======================================================================= */
 
-int cmd_to_modem(
-	//
-	//
-	//
-	char *command,
-	int cmd_number
-)
+int cmd_to_modem(char *command, int cmd_number)
 {
-	int result = 1;
-	char *cmd;
-	char *p;
-	char answer[1024]; // 3.1.16beta: 500 -> 1024
-	char buffer[1024]; // 3.1.16beta: 600 -> 1024
-	int fd;
-	int log_retry = 3;
-	int i;
-	FILE *fp;
-	int is_ussd = 0;	// 3.1.7
+  int result = 1;
+  char *cmd;
+  char *p;
+  char answer[1024]; // 3.1.16beta: 500 -> 1024
+  char buffer[1024]; // 3.1.16beta: 600 -> 1024
+  int fd;
+  int log_retry = 3;
+  int i;
+  FILE *fp;
+  int is_ussd = 0; // 3.1.7
 
-	if (!command || !(*command))
-		return 1;
+  if (!command || !(*command))
+    return 1;
 
-	if (DEVICE.modem_disabled)
-	{
-		writelogfile(LOG_DEBUG, 0, "cmd_to_modem: %s", command);
-		return 1;
-	}
+  if (DEVICE.modem_disabled)
+  {
+    writelogfile(LOG_DEBUG, 0, "cmd_to_modem: %s", command);
+    return 1;
+  }
 
-	if (!try_openmodem())
-		return 0;
+  if (!try_openmodem())
+    return 0;
 
-	if (cmd_number == 1 && DEVICE.needs_wakeup_at)
-	{
-		put_command("AT\r", 0, 0, "default", 0);
-		usleep_until(time_usec() + 100000);
-		read_from_modem(answer, sizeof(answer), 2);
-	}
+  if (cmd_number == 1 && DEVICE.needs_wakeup_at)
+  {
+    put_command("AT\r", 0, 0, "default", 0);
+    usleep_until(time_usec() + 100000);
+    read_from_modem(answer, sizeof(answer), 2);
+  }
 
-	if ((cmd = malloc(strlen(command) + 2)))
-	{
-		sprintf(cmd, "%s\r", command);
-		// 3.1.5: Special case: AT+CUSD, wait USSD message:
-		//put_command(*modem, device, cmd, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
-		if (!strncasecmp(command, "AT+CUSD", 7) && strlen(command) > 9)
-		{
-			is_ussd++;
-			put_command(cmd, answer, sizeof(answer), "cusd", "(\\+CUSD:)|(ERROR)");
-		}
-		else
-		// 3.1.12:
-		if (*cmd == '[' && strchr(cmd, ']'))
-		{
-			char *expect;
+  if ((cmd = malloc(strlen(command) + 2)))
+  {
+    sprintf(cmd, "%s\r", command);
+    // 3.1.5: Special case: AT+CUSD, wait USSD message:
+    //put_command(*modem, device, cmd, answer, sizeof(answer), 1, EXPECT_OK_ERROR);
+    if (!strncasecmp(command, "AT+CUSD", 7) && strlen(command) > 9)
+    {
+      is_ussd++;
 
-			if ((expect = strdup(cmd + 1)))
-			{
-				*(strchr(expect, ']')) = 0;
-				put_command(strchr(cmd, ']') + 1, answer, sizeof(answer), "cmd", expect);
-				free(expect);
+      // 3.1.21: In some cases modem gives the answer in two or more parts.
+      // First part is not enough, must wait to end or near to end if dsc is not known:
+      //put_command(cmd, answer, sizeof(answer), "cusd", "(\\+CUSD:)|(ERROR)");
+      put_command(cmd, answer, sizeof(answer), "cusd", "(\\+CUSD:.*\",)|(ERROR)");
+    }
+    else
+    // 3.1.12:
+    if (*cmd == '[' && strchr(cmd, ']'))
+    {
+      char *expect;
 
-				//TODO: is_ussd ?
-			}
-		}
-		else
-		// -------
-			put_command(cmd, answer, sizeof(answer), "cmd", EXPECT_OK_ERROR);
+      if ((expect = strdup(cmd + 1)))
+      {
+        // 3.1.21: Use cusd timeout if this seems to be USSD command:
+        char *timeout = "cmd";
+        char *command = strchr(cmd, ']') + 1;
 
-		if (*answer)
-		{
-			char timestamp[81];
+        if (strstr(command, "+CUSD"))
+          timeout = "cusd";
 
-			make_datetime_string(timestamp, sizeof(timestamp), 0, 0, logtime_format);
+        *(strchr(expect, ']')) = 0;
+        //put_command(strchr(cmd, ']') + 1, answer, sizeof(answer), "cmd", expect);
+        put_command(command, answer, sizeof(answer), timeout, expect);
+        free(expect);
 
-			while ((p = strchr(answer, '\r')))
-				*p = ' ';
-			while ((p = strchr(answer, '\n')))
-				*p = ' ';
-			while ((p = strstr(answer, "  ")))
-				strcpyo(p, p + 1);
-			if (*answer == ' ')
-				strcpyo(answer, answer + 1);
-			p = answer + strlen(answer);
-			while (p > answer && p[-1] == ' ')
-				--p;
-			*p = 0;
+        // 3.1.21: Set is_ussd if this answer seems to be ussd answer:
+        // Sample regular_run_cmd in this case (without the dcs in the end):
+        // [(\+CUSD:.*",)|(ERROR)]AT+CUSD=1,"AA180C3602"
+        if (strstr(answer, "+CUSD:"))
+          is_ussd++;
+      }
+    }
+    else
+      // -------
+      put_command(cmd, answer, sizeof(answer), "cmd", EXPECT_OK_ERROR);
 
-			if (is_ussd && DEVICE.ussd_convert == 1)
-			{
-				// If answer of USSD received in unicode format, convert it to utf8
-#define USSDOK "OK +CUSD: 2,\""
-				i = 0;
-				if (!strncasecmp(answer, USSDOK, sizeof(USSDOK) - 1) && sscanf(p = answer + sizeof(USSDOK) - 1, "%[0-9A-Fa-f]\",72%n", buffer, &i) == 1 && !p[i] && i > 4 && ((i -= 4) & 3) == 0)
-#undef USSDOK
-				{
-					for (i = 0; buffer[i * 2]; i++)
-					{
-						unsigned v;
+    if (*answer)
+    {
+      char timestamp[81];
 
-						sscanf(&buffer[i * 2], "%2X", &v);
-						buffer[i] = (char) v;
-					}
+      make_datetime_string(timestamp, sizeof(timestamp), 0, 0, logtime_format);
 
-					i = (int) ucs2utf(buffer, i, sizeof(answer) - 2 - (p - answer));
+      while ((p = strchr(answer, '\r')))
+        *p = ' ';
+      while ((p = strchr(answer, '\n')))
+        *p = ' ';
+      while ((p = strstr(answer, "  ")))
+        strcpyo(p, p + 1);
+      if (*answer == ' ')
+        strcpyo(answer, answer + 1);
+      p = answer + strlen(answer);
+      while (p > answer && p[-1] == ' ')
+        --p;
+      *p = 0;
 
-					if (i != 0)
-					{
-						memcpy(p, buffer, i);
-						p[i] = '"';
-						p[i + 1] = 0;
-					}
-				}
-			}
-			else if (is_ussd && DEVICE.ussd_convert == 2)
-			{
-				if (strstr(answer, "+CUSD:"))
-				{
-					char *p1, *p2;
+      if (is_ussd && DEVICE.ussd_convert > 0)
+      {
+        char *p1, *p2;
+        int c, idx;
 
-					if ((p1 = strchr(answer, '"')))
-					{
-						p1++;
-						if ((p2 = strchr(p1, '"')))
-						{
-							snprintf(buffer, sizeof(buffer), "%.*s", (int)(p2 - p1), p1);
-							if ((p = strdup(buffer)))
-							{
-								decode_7bit_packed(p, buffer, sizeof(buffer));
-								free(p);
-								cut_ctrl(buffer);
-								if (strlen(answer) < sizeof(answer) - strlen(buffer) - 4)
-									sprintf(strchr(answer, 0), " // %s", buffer);
-							}
-						}
-					}
-				}
-			}
-			// 3.1.11: HEX dump:
-			else if (is_ussd && DEVICE.ussd_convert == 4)
-			{
-				if (strstr(answer, "+CUSD:"))
-				{
-					char *p1, *p2;
+        if ((p1 = strstr(answer, "+CUSD:")))
+        {
+          if ((p1 = strchr(p1, '"')))
+          {
+            p1++;
+            if ((p2 = strchr(p1, '"')))
+            {
+              snprintf(buffer, sizeof(buffer), "%.*s", (int) (p2 - p1), p1);
+              if ((p = strdup(buffer)))
+              {
+                switch (DEVICE.ussd_convert)
+                {
+                  case 1: // Unicode format is converted to UTF-8
+                  case 4: // Hexadecimal dump is converted to ASCII
+                    memset(buffer, 0, sizeof(buffer));
+                    for (idx = 0; p[idx] && p[idx + 1]; idx += 2)
+                    {
+                      sscanf(&p[idx], "%2X", &c);
+                      buffer[idx / 2] = (char) c;
+                    }
+                    if (DEVICE.ussd_convert == 1)
+                      ucs2utf(buffer, idx / 2, sizeof(buffer));
+                    break;
 
-					if ((p1 = strchr(answer, '"')))
-					{
-						p1++;
-						if ((p2 = strchr(p1, '"')))
-						{
-							snprintf(buffer, sizeof(buffer), "%.*s", (int)(p2 - p1), p1);
-							if ((p = strdup(buffer)))
-							{
-								int c;
-								int idx;
+                  case 2: // GSM 7bit packed format is converted to ISO or UTF-8
+                    decode_7bit_packed(p, buffer, sizeof(buffer));
+                    break;
+                }
 
-								*buffer = 0;
-								for (idx = 0; strlen(p +idx) > 1; idx += 2)
-								{
-									sscanf(&p[idx], "%2X", &c);
-									sprintf(strchr(buffer, 0), "%c", (char)c);
-								}
+                free(p);
+                cut_ctrl(buffer);
+                if (strlen(answer) < sizeof(answer) - strlen(buffer) - 4)
+                  sprintf(strchr(answer, 0), " // %s", buffer);
+              }
+            }
+          }
+        }
+      }
 
-								free(p);
-								cut_ctrl(buffer);
-								if (strlen(answer) < sizeof(answer) - strlen(buffer) - 4)
-									sprintf(strchr(answer, 0), " // %s", buffer);
-							}
-						}
-					}
-				}
-			}
+      if (is_ussd && DEVICE.eventhandler_ussd[0])
+      {
+        char tmp_filename[PATH_MAX];
+        char te_charset[41];
+        size_t n, i;
 
-			if (is_ussd && DEVICE.eventhandler_ussd[0])
-			{
-				char tmp_filename[PATH_MAX];
-				char te_charset[41];
-				size_t n, i;
+        put_command("AT+CSCS?\r", te_charset, sizeof(te_charset), "default", EXPECT_OK_ERROR);
+        cut_ctrl(cutspaces(te_charset));
+        if (!(p = strchr(te_charset, '"')))
+          *te_charset = 0;
+        else
+        {
+          strcpyo(te_charset, p + 1);
+          if ((p = strchr(te_charset, '"')))
+            *p = 0;
+        }
+        if (!(*te_charset))
+          strcpy(te_charset, "ERROR");
 
-				put_command("AT+CSCS?\r", te_charset, sizeof(te_charset), "default", EXPECT_OK_ERROR);
-				cut_ctrl(cutspaces(te_charset));
-				if (!(p = strchr(te_charset, '"')))
-					*te_charset = 0;
-				else
-				{
-					strcpyo(te_charset, p + 1);
-					if ((p = strchr(te_charset, '"')))
-						*p = 0;
-				}
-				if (!(*te_charset))
-					strcpy(te_charset, "ERROR");
+        // 3.1.16beta: Use tmpdir:
+        //sprintf(tmp_filename, "%s/smsd.XXXXXX", "/tmp");
+        sprintf(tmp_filename, "%s/smsd.XXXXXX", tmpdir);
 
-				// 3.1.16beta: Use tmpdir:
-				//sprintf(tmp_filename, "%s/smsd.XXXXXX", "/tmp");
-				sprintf(tmp_filename, "%s/smsd.XXXXXX", tmpdir);
+        fd = mkstemp(tmp_filename);
+        write(fd, answer, strlen(answer));
+        write(fd, "\n", 1);
+        close(fd);
 
-				fd = mkstemp(tmp_filename);
-				write(fd, answer, strlen(answer));
-				write(fd, "\n", 1);
-				close(fd);
+        n = snprintf(buffer, sizeof(buffer), "%s USSD %s %s %s \"", DEVICE.eventhandler_ussd, tmp_filename, DEVICE.name, te_charset);
 
-				n = snprintf(buffer, sizeof(buffer), "%s USSD %s %s %s \"", DEVICE.eventhandler_ussd, tmp_filename, DEVICE.name, te_charset);
+        for (i = 0; command[i] != '\0' && n < sizeof(buffer) - 2; n++, i++)
+        {
+          if (command[i] == '"')
+            buffer[n++] = '\\';
+          buffer[n] = command[i];
+        }
 
-				for (i = 0; command[i] != '\0' && n < sizeof(buffer) - 2; n++, i++)
-				{
-					if (command[i] == '"')
-						buffer[n++] = '\\';
-					buffer[n] = command[i];
-				}
+        if (n < sizeof(buffer) - 2)
+        {
+          FILE *fp_tmp;
 
-				if (n < sizeof(buffer) - 2)
-				{
-					FILE *fp_tmp;
+          buffer[n] = '"';
+          buffer[n + 1] = '\0';
 
-					buffer[n] = '"';
-					buffer[n + 1] = '\0';
+          exec_system(buffer, EXEC_EVENTHANDLER);       // USSD
 
-					exec_system(buffer, EXEC_EVENTHANDLER); // USSD
+          if ((fp_tmp = fopen(tmp_filename, "r")))
+          {
+            if (fgets(buffer, sizeof(answer), fp_tmp))
+              strcpy(answer, cut_ctrl(buffer));
 
-					if ((fp_tmp = fopen(tmp_filename, "r")))
-					{
-						if (fgets(buffer, sizeof(answer), fp_tmp))
-							strcpy(answer, cut_ctrl(buffer));
+            fclose(fp_tmp);
+          }
+        }
+        else
+          writelogfile(LOG_ERR, 0, "Buffer too small for execute USSD eventhadler for %s", DEVICE.name);
 
-						fclose(fp_tmp);
-					}
-				}
-				else
-					writelogfile(LOG_ERR, 0, "Buffer too small for execute USSD eventhadler for %s", DEVICE.name);
+        unlink(tmp_filename);
+      }
 
-				unlink(tmp_filename);
-			}
+      if (DEVICE.dev_rr_logfile[0])
+      {
+        while (log_retry-- > 0)
+        {
+          // NOTE: log files use mode 640 as a fixed value.
+          if ((fd = open(DEVICE.dev_rr_logfile, O_APPEND | O_WRONLY | O_CREAT, 0640)) >= 0)
+          {
+            snprintf(buffer, sizeof(buffer), "%s,%i, %s: CMD: %s: %s\n", timestamp, DEVICE.dev_rr_loglevel, DEVICE.name, command, answer);
+            write(fd, buffer, strlen(buffer));
+            close(fd);
+            break;
+          }
 
-			if (DEVICE.dev_rr_logfile[0])
-			{
-				while (log_retry-- > 0)
-				{
-					// NOTE: log files use mode 640 as a fixed value.
-					if ((fd = open(DEVICE.dev_rr_logfile, O_APPEND | O_WRONLY | O_CREAT, 0640)) >= 0)
-					{
-						snprintf(buffer, sizeof(buffer), "%s,%i, %s: CMD: %s: %s\n", timestamp, DEVICE.dev_rr_loglevel, DEVICE.name, command, answer);
-						write(fd, buffer, strlen(buffer));
-						close(fd);
-						break;
-					}
+          if (log_retry > 0)
+          {
+            i = getrand(100);
+            usleep_until(time_usec() + i * 10);
+          }
+          else
+            writelogfile(LOG_ERR, 0, "Cannot open %s. %s", DEVICE.dev_rr_logfile, strerror(errno));
+        }
+      }
+      else
+        writelogfile(DEVICE.dev_rr_loglevel, 0, "CMD: %s: %s", command, answer);
 
-					if (log_retry > 0)
-					{
-						i = getrand(100);
-						usleep_until(time_usec() + i * 10);
-					}
-					else
-						writelogfile(LOG_ERR, 0, "Cannot open %s. %s", DEVICE.dev_rr_logfile, strerror(errno));
-				}
-			}
-			else
-				writelogfile(DEVICE.dev_rr_loglevel, 0, "CMD: %s: %s", command, answer);
+      // 3.1.5: If signal quality was checked, explain it to the log:
+      if (!strcasecmp(cmd, "AT+CSQ\r"))
+        explain_csq(DEVICE.dev_rr_loglevel, 0, answer, DEVICE.signal_quality_ber_ignore);
 
-			// 3.1.5: If signal quality was checked, explain it to the log:
-			if (!strcasecmp(cmd, "AT+CSQ\r"))
-				explain_csq(DEVICE.dev_rr_loglevel, 0, answer, DEVICE.signal_quality_ber_ignore);
+      if (DEVICE.dev_rr_statfile[0])
+      {
+        // 3.1.6:
+        //if ((fd = open(DEVICE.dev_rr_statfile, O_APPEND | O_WRONLY | O_CREAT, 0640)) >= 0)
+        if ((fp = fopen(DEVICE.dev_rr_statfile, "a")))
+        {
+          //snprintf(buffer, sizeof(buffer), "%s,%i, %s: CMD: %s: %s\n", timestamp, LOG_NOTICE, DEVICE.name, command, answer);
+          //write(fd, buffer, strlen(buffer));
+          //close(fd);
+          fprintf(fp, "%s,%i, %s: CMD: %s: %s\n", timestamp, LOG_NOTICE, DEVICE.name, command, answer);
+          fclose(fp);
+        }
+        else
+          writelogfile(LOG_ERR, 0, "Cannot open %s. %s", DEVICE.dev_rr_statfile, strerror(errno));
+      }
+    }
 
-			if (DEVICE.dev_rr_statfile[0])
-			{
-				// 3.1.6:
-				//if ((fd = open(DEVICE.dev_rr_statfile, O_APPEND | O_WRONLY | O_CREAT, 0640)) >= 0)
-				if ((fp = fopen(DEVICE.dev_rr_statfile, "a")))
-				{
-					//snprintf(buffer, sizeof(buffer), "%s,%i, %s: CMD: %s: %s\n", timestamp, LOG_NOTICE, DEVICE.name, command, answer);
-					//write(fd, buffer, strlen(buffer));
-					//close(fd);
-					fprintf(fp, "%s,%i, %s: CMD: %s: %s\n", timestamp, LOG_NOTICE, DEVICE.name, command, answer);
-					fclose(fp);
-				}
-				else
-					writelogfile(LOG_ERR, 0, "Cannot open %s. %s", DEVICE.dev_rr_statfile, strerror(errno));
-			}
-		}
+    free(cmd);
+  }
 
-		free(cmd);
-	}
-
-	return result;
+  return result;
 }
 
 int run_rr()
@@ -6645,7 +6618,8 @@ void log_adjust_device_starting(int is_refresh)
   if (is_refresh)
   {
     if (*p)
-      writelogfile(i, 0, "Modem handler %s:%s", process_id, p);
+      // 3.1.21: Fixed format for process_id from %s to %i.
+      writelogfile(i, 0, "Modem handler %i:%s", process_id, p);
   }
   else
   {
@@ -6710,7 +6684,7 @@ void log_adjust_device_starting(int is_refresh)
       strcat(buffer, p);
       p = strchr(p, 0) +1;
     }
-    writelogfile(LOG_NOTICE, 0, buffer);
+    writelogfile0(LOG_NOTICE, 0, buffer);
   }
 
   // 3.1.16beta: Report queues at startup:
@@ -6729,7 +6703,7 @@ void log_adjust_device_starting(int is_refresh)
         strcat(buffer, ", ");
       strcat(buffer, DEVICE.queues[i]);
     }
-    writelogfile(LOG_NOTICE, 0, buffer);
+    writelogfile0(LOG_NOTICE, 0, buffer);
   }
 
   // 3.1.7: Report check memory method only if modem will read incoming messages:
@@ -6803,7 +6777,8 @@ int start_device()
     check_memory_buffer_size = select_check_memory_buffer_size();
     if (!(check_memory_buffer = (char *)malloc(check_memory_buffer_size)))
     {
-      writelogfile0(LOG_CRIT, 1, tb_sprintf("Did not get memory for check_memory_buffer (%i). Stopping.", check_memory_buffer_size));
+      // 3.1.21: Fixed size_t argument to int.
+      writelogfile0(LOG_CRIT, 1, tb_sprintf("Did not get memory for check_memory_buffer (%i). Stopping.", (int)check_memory_buffer_size));
       alarm_handler0(LOG_CRIT, tb);
       return 0;
     }
@@ -6897,8 +6872,9 @@ int dspooler_check_max_continuous_sending(time_t started_sending, int continuous
         time_t seconds;
 
         seconds = time(0) - started_sending;
+        // 3.1.21: Fixed time_t argument to int.
         writelogfile(LOG_INFO, 0, "Sent %d messages in %d sec. Average time for one message: %.1f sec.",
-                     continuous_sent, seconds, (double)seconds / continuous_sent);
+                     continuous_sent, (int)seconds, (double)seconds / continuous_sent);
       }
 
       return 1;
@@ -7148,7 +7124,7 @@ int dspooler_readphonecalls()
           if (result == 0 && count > 0 && !keep_messages && !DEVICE.keep_messages)
           {
             result = count;
-            writelogfile(LOG_INFO, 0, "Removing processed phonecall entries", count);
+            writelogfile(LOG_INFO, 0, "Removing processed phonecall entries (%i)", count);
 
             // 3.1.7:
             if (DEVICE.phonecalls_purge[0])
@@ -7843,7 +7819,7 @@ int main(int argc,char** argv)
     char *p = "Unable to change the current working directory to \"/\".";
 
     fprintf(stderr, "%s\n", p);
-    writelogfile(LOG_CRIT, 0, p);
+    writelogfile0(LOG_CRIT, 0, p);
     exit(EXIT_FAILURE);
   }
 

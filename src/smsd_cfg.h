@@ -274,6 +274,12 @@ typedef struct
   int delaytime_random_start; // 3.1.18.
   int read_identity_after_suspend; // 3.1.18.
   int read_configuration_after_suspend; // 3.1.18.
+  int check_sim; // 3.1.21.
+  char check_sim_cmd[64]; // 3.1.21.
+  int check_sim_keep_open; // 3.1.21.
+  char check_sim_reset[64]; // 3.1.21.
+  int check_sim_retries; // 3.1.21.
+  int check_sim_wait; // 3.1.21.
 } _device;
 
 // NOTE for regular run intervals: effective value is at least delaytime.
@@ -510,7 +516,11 @@ int startup_check(int result);
 
 void abnormal_termination(int all);
 
+#ifdef __GNUC__
+char *tb_sprintf(char* format, ...) __attribute__ ((format(printf, 1, 2)));
+#else
 char *tb_sprintf(char* format, ...);
+#endif
 
 int savephonecall(char *entry_number, int entry_type, char *entry_text);
 

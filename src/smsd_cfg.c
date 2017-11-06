@@ -59,6 +59,10 @@ char *tb_sprintf(char* format, ...)
   return tb;
 }
 
+#ifdef __GNUC__
+void startuperror(char* format, ...) __attribute__ ((format(printf, 1, 2)));
+#endif
+
 void startuperror(char* format, ...)
 {
   va_list argp;
@@ -275,6 +279,12 @@ void initcfg_device(int i)
   devices[i].delaytime_random_start = -1;
   devices[i].read_identity_after_suspend = 1;
   devices[i].read_configuration_after_suspend = 0;
+  devices[i].check_sim = 0; // 3.1.21.
+  devices[i].check_sim_cmd[0] = 0; // 3.1.21.
+  devices[i].check_sim_keep_open = 0; // 3.1.21.
+  devices[i].check_sim_reset[0] = 0; // 3.1.21.
+  devices[i].check_sim_retries = 10; // 3.1.21.
+  devices[i].check_sim_wait = 30; // 3.1.21.
 }
 
 void initcfg()
@@ -1590,6 +1600,52 @@ int readcfg_device(int device, char *device_name)
             continue;
           }
 
+          if (!strcasecmp(name, "check_sim"))
+          {
+            ask_value(NEWDEVICE.name, name, value);
+
+            if (strncasecmp(value, "once", strlen(value)) == 0)
+              NEWDEVICE.check_sim = 2;
+            else if ((NEWDEVICE.check_sim = yesno_check(value)) == -1)
+              startuperror(yesno_error, name, value);
+            continue;
+          }
+
+          if (!strcasecmp(name, "check_sim_cmd"))
+          {
+            strcpy2(NEWDEVICE.check_sim_cmd, ask_value(NEWDEVICE.name, name, value));
+            continue;
+          }
+
+          if (!strcasecmp(name, "check_sim_keep_open"))
+          {
+            if ((NEWDEVICE.check_sim_keep_open = yesno_check(ask_value(NEWDEVICE.name, name, value))) == -1)
+              startuperror(yesno_error, name, value);
+            continue;
+          }
+
+          if (!strcasecmp(name, "check_sim_reset"))
+          {
+            strcpy2(NEWDEVICE.check_sim_reset, ask_value(NEWDEVICE.name, name, value));
+            continue;
+          }
+
+          if (!strcasecmp(name, "check_sim_retries"))
+          {
+            ask_value(NEWDEVICE.name, name, value);
+
+            if (strncasecmp(value, "forever", strlen(value)) == 0)
+              NEWDEVICE.check_sim_retries = -1;
+            else
+              NEWDEVICE.check_sim_retries = atoi(value);
+            continue;
+          }
+
+          if (!strcasecmp(name, "check_sim_wait"))
+          {
+            NEWDEVICE.check_sim_wait = atoi(ask_value(NEWDEVICE.name, name, value));
+            continue;
+          }
 
           // 3.1.19beta: Show modem/section:
           if (!strcmp(NEWDEVICE.name, device_name))
@@ -2688,12 +2744,12 @@ void help()
   printf("         -nx set process name argument to x\n");
   printf("         -ux set username to x\n");
   printf("         -gx set groupname to x\n");
-  printf("         -h  this help\n");
+  printf("         -h, -? show this help\n");
 #ifndef NOSTATS
   printf("         -s  display status monitor\n");
 #endif
   printf("         -t  run smsd in terminal\n");
-  printf("         -C  Communicate with device\n");
+  printf("         -Cx Communicate with device x\n");
   printf("         -V  print copyright and version\n\n");
   printf("All other options are set by the file %s.\n\n", configfile);
   printf("Output is written to stdout, errors are written to stderr.\n\n");
@@ -2735,11 +2791,15 @@ void parsearguments(int argc,char** argv)
 
   do
   {
-    result = getopt(argc, argv, "asthc:D:E:Vi:p:l:n:u:g:C:");
+    result = getopt(argc, argv, "ast?hc:D:E:Vi:p:l:n:u:g:C:");
     switch (result)
     {
       case 'a': conf_ask = 1;
                 break;
+
+      // 3.1.21: Handle "option requires an argument" cases : and ?, show help and do not start:
+      case ':':
+      case '?':
       case 'h': help();
                 break;
       case 'c': copyvalue(configfile, sizeof(configfile) -1, optarg, "configfile commandline argument");
@@ -3402,7 +3462,10 @@ int startup_check(int result)
       wrlogfile(&result, "Smart logging cannot be used when syslog is used for logging.");
 
     for (x = 0; x < NUMBER_OF_MODEMS; x++)
-      if (devices[x].name && devices[x].logfile[0])
+      // 3.1.21: Fix to prevent warning on compilation (FreeBSD): "devices[x].name" was always true,
+      // but device which is not set, also does not have .logfile set.
+      //if (devices[x].name && devices[x].logfile[0])
+      if (devices[x].name[0] && devices[x].logfile[0])
         if (strcmp(devices[x].logfile, "syslog") == 0 || strcmp(devices[x].logfile, "0") == 0)
           wrlogfile(&result, "Smart logging cannot be used when syslog is used for logging, device %s.", devices[x].name);
   }
@@ -3706,7 +3769,7 @@ int startup_check(int result)
     {
 	if (queues[0].name[0])
 	{
-	        writelogfile(LOG_WARNING, 0, "Queue definitions:", tmp);
+	        writelogfile(LOG_WARNING, 0, "Queue definitions:");
 		for (x = 0; ; x++)
 		{
 			if (queues[x].name[0])

@@ -1169,7 +1169,8 @@ int my_system(
 			if (errno != EINTR)
 			{
 				*run_info = 0;
-				writelogfile0(LOG_ERR, 0, tb_sprintf("Done: %s, execution time %i sec., errno: %i, %s", info, time(0) - start_time, errno, strerror(errno)));
+				// 3.1.21: Fixed time_t argument to int.
+				writelogfile0(LOG_ERR, 0, tb_sprintf("Done: %s, execution time %i sec., errno: %i, %s", info, (int)(time(0) - start_time), errno, strerror(errno)));
 				return -1;
 			}
 		}
@@ -1196,7 +1197,8 @@ int my_system(
 				trouble = 1;
 			}
 
-			writelogfile0(level, trouble, tb_sprintf("Done: %s, execution time %i sec., status: %i (%i)", info, time(0) - start_time, status, WEXITSTATUS(status)));
+			// 3.1.21: Fixed time_t argument to int.
+			writelogfile0(level, trouble, tb_sprintf("Done: %s, execution time %i sec., status: %i (%i)", info, (int)(time(0) - start_time), status, WEXITSTATUS(status)));
 
 			if (!ignore_exec_output)
 			{

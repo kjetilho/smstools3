@@ -19,7 +19,13 @@ Either version 2 of the License, or (at your option) any later version.
 
 // 3.1.16beta2: Moved logch() and prch() from charset.c to logging.c:
 char logch_buffer[8192];
+
+#ifdef __GNUC__
+void logch(char* format, ...) __attribute__ ((format(printf, 1, 2)));
+#else
 void logch(char* format, ...);
+#endif
+
 char prch(char ch);
 
 // 3.1.16beta: changed type:
@@ -41,7 +47,13 @@ int openlogfile(char *filename, int facility, int level);
 
 void closelogfile();
 void writelogfile0(int severity, int trouble, char *text);
+
+#ifdef __GNUC__
+void writelogfile(int severity, int trouble, char* format, ...) __attribute__ ((format(printf, 3, 4)));
+#else
 void writelogfile(int severity, int trouble, char* format, ...);
+#endif
+
 void flush_smart_logging();
 
 #endif

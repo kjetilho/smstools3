@@ -5,7 +5,7 @@
 # $1 is the destination phone number.
 # $2 is the message text.
 # If you leave $2 or both empty, the script will ask you.
-# If you give more than 2 arguments, last is taken as a text and 
+# If you give more than 2 arguments, last is taken as a text and
 # all other are taken as destination numbers.
 # If a destination is asked, you can type multiple numbers
 # delimited with spaces.
@@ -18,7 +18,7 @@ KEYS=""
 # When creating keys, remember to use -n for echo:
 # echo -n "key" | md5sum
 
-smsd_user="smsd"
+smsd_group="smsd"
 
 # Will need echo which accepts -n argument:
 ECHO=echo
@@ -85,10 +85,10 @@ if which iconv > /dev/null 2>&1; then
   fi
 fi
 
-owner=""
-if [ -f /etc/passwd ]; then
-  if grep $smsd_user: /etc/passwd >/dev/null; then
-    owner=$smsd_user
+group=""
+if [ -f /etc/group ]; then
+  if grep $smsd_group: /etc/group >/dev/null; then
+    group=$smsd_group
   fi
 fi
 
@@ -107,9 +107,11 @@ do
     $ECHO -n "$TEXT" | iconv -t UNICODEBIG >> $TMPFILE
   fi
 
-  if [ "x$owner" != x ]; then
-    chown $owner $TMPFILE
+  if [ "x$group" != x ]; then
+    chgrp $group $TMPFILE
   fi
+
+  chmod 0660 $TMPFILE
 
   FILE=`mktemp /var/spool/sms/outgoing/send_XXXXXX`
   mv $TMPFILE $FILE

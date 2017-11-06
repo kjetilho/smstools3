@@ -852,7 +852,7 @@ int read_from_modem0(char *answer, int max, int timeout, regex_t *re, char *expe
           sprintf(strchr(tmp, 0), " %02X[%c]", (unsigned char) answer[i], ((unsigned char) answer[i] >= ' ') ? answer[i] : '.');
         }
 
-        writelogfile(LOG_CRIT, 0, tmp);
+        writelogfile0(LOG_CRIT, 0, tmp);
       }
 
       // restart timout counter
@@ -1546,12 +1546,6 @@ int initmodem(char *new_smsc, int receiving)
   int retries=0;
   char *p;
 
-  // 3.1.16beta2: added semicolons to pre_initstrings:
-  //char *pre_initstring = "ATE0+CMEE=1\r";
-  //char *pre_initstring_clip = "ATE0+CMEE=1;+CLIP=1\r";
-  char *pre_initstring = "ATE0;+CMEE=1\r";
-  char *pre_initstring_clip = "ATE0;+CMEE=1;+CLIP=1\r";
-
   static int reading_checked = 0;
 
   STATISTICS->last_init = time(0);
@@ -1662,16 +1656,144 @@ int initmodem(char *new_smsc, int receiving)
   if (terminate)
     return 7;
 
-  if (DEVICE.pre_init > 0)
+  if (DEVICE.check_sim) // 3.1.21
   {
+    char reset_cmd[sizeof(DEVICE.check_sim_reset)];
+    int sim_ok = 0;
+    char save_status = STATISTICS->status;
+
+    writelogfile(LOG_INFO, 0, "Checking the SIM");
+
+    sprintf(command, "%s\r", (DEVICE.check_sim_cmd[0])? DEVICE.check_sim_cmd : "AT+CPIN?");
+
+    if (!strcasecmp(DEVICE.check_sim_reset, "RADIO_OFF_ON"))
+      strcpy(reset_cmd, "AT+CFUN=0;+CFUN=1");
+    else
+    if (!strcasecmp(DEVICE.check_sim_reset, "RADIO_OFF_ON_SLOW"))
+      strcpy(reset_cmd, "AT+CFUN=0[3]AT+CFUN=1[5]");
+    else
+      strcpy(reset_cmd, DEVICE.check_sim_reset);
+
+    retries = 0;
+
+    while (DEVICE.check_sim_retries < 0 || retries <= DEVICE.check_sim_retries)
+    {
+      if (try_openmodem())
+      {
+        if (retries > 0 && *reset_cmd)
+        {
+          char cmd[sizeof(command)];
+          char *p1, *p2;
+
+          writelogfile(LOG_INFO, 0, "Trying to reset the modem");
+
+          p1 = reset_cmd;
+
+          while (*p1)
+          {
+            if (*p1 == '[')
+            {
+              if ((p2 = strchr(p1, ']')))
+              {
+                writelogfile(LOG_DEBUG, 0, "Sleeping %i sec", atoi(p1 + 1));
+
+                if (t_sleep(atoi(p1 + 1)))
+                  return 7;
+
+                p1 = p2 + 1;
+                continue;
+              }
+              else
+              break;
+            }
+
+            if ((p2 = strchr(p1, '[')))
+            {
+              memset(cmd, 0, sizeof(cmd));
+              strncpy(cmd, p1, (int)(p2 - p1));
+            }
+            else
+              strcpy(cmd, p1);
+
+            p1 += strlen(cmd);
+            strcat(cmd, "\r");
+            put_command(cmd, answer, sizeof(answer), "init", EXPECT_OK_ERROR);
+          }
+        }
+
+        put_command(command, answer, sizeof(answer), "init", EXPECT_OK_ERROR);
+
+        if (!strstr(answer, "ERROR"))
+        {
+          sim_ok = 1;
+          break;
+        }
+      }
+
+      retries++;
+      STATISTICS->status = 't';
+
+      if (modem_handle >= 0)
+        tb_sprintf("Check SIM returned ERROR, try: %i", retries);
+      else
+        tb_sprintf("Check SIM could not open the modem, try: %i", retries);
+
+      writelogfile0(LOG_ERR, 1, tb);
+      alarm_handler0(LOG_ERR, tb);
+
+      if (DEVICE.check_sim_retries < 0 || retries <= DEVICE.check_sim_retries)
+      {
+        if (DEVICE.check_sim_keep_open == 0)
+          try_closemodem(1);
+
+        writelogfile(LOG_DEBUG, 0, "Sleeping %i sec before retrying", DEVICE.check_sim_wait);
+        if (t_sleep(DEVICE.check_sim_wait))
+          return 7;
+      }
+    }
+
+    if (!sim_ok)
+    {
+      writelogfile0(LOG_ERR, 1, tb_sprintf("Check SIM failed and not retrying anymore"));
+      alarm_handler0(LOG_ERR, tb);
+      abnormal_termination(0);
+    }
+
+    STATISTICS->status = save_status;
+
+    if (DEVICE.check_sim == 2)
+      DEVICE.check_sim = 0;
+  }
+
+  // -----------------------------------------------------------------------------------------------
+  if (terminate)
+    return 7;
+
+  // 3.1.21: Originally pre_init was containing "echo off" and "CMEE=1". If pre_init
+  // is set to no, CLIP=1 and/or CREG=2 are still sent if required.
+
+  if (DEVICE.pre_init > 0 ||
+      DEVICE.phonecalls == 2 || get_loglevel() >= DEVICE.loglevel_lac_ci)
+  {
+    // 3.1.21: Do not concatenate ATE0 and extended commands in pre_initialization.
+
     writelogfile(LOG_INFO, 0, "Pre-initializing modem");
 
-    // 3.1.14:
-    //put_command((DEVICE.phonecalls == 2)? pre_initstring_clip : pre_initstring, answer, sizeof(answer), 2, EXPECT_OK_ERROR);
-    snprintf(command, sizeof(command), "%s", (DEVICE.phonecalls == 2)? pre_initstring_clip : pre_initstring);
+    if (DEVICE.pre_init > 0)
+      put_command("ATE0\r", answer, sizeof(answer), "preinit", EXPECT_OK_ERROR);
+
+    *command = 0;
+
+    if (DEVICE.pre_init > 0)
+      strcpy(command, "AT+CMEE=1");
+
+    if (DEVICE.phonecalls == 2)
+      sprintf(strchr(command, 0), "%s+CLIP=1", (*command)? ";" : "AT");
+
     if (get_loglevel() >= DEVICE.loglevel_lac_ci)
-      if (sizeof(command) > strlen(command) +8)
-        strcpy(command +strlen(command) -1, ";+CREG=2\r");
+      sprintf(strchr(command, 0), "%s+CREG=2", (*command)? ";" : "AT");
+
+    strcat(command, "\r");
 
     put_command(command, answer, sizeof(answer), "preinit", EXPECT_OK_ERROR);
 
@@ -2074,7 +2196,7 @@ int initmodem(char *new_smsc, int receiving)
         break;
 
       snprintf(tmp, sizeof(tmp), "# %s:", commands[i + 1]);
-      writelogfile(LOG_DEBUG, 0, tmp);
+      writelogfile0(LOG_DEBUG, 0, tmp);
       sprintf(command, "%s\r", commands[i]);
       put_command0(command, answer, sizeof(answer), "default", EXPECT_OK_ERROR, 1);
     }
@@ -2204,7 +2326,7 @@ int open_inet_socket(char *backend)
     {
       // Do not log the first failure:
       if (retries > 1)
-        writelogfile(LOG_INFO, 0, tb);
+        writelogfile0(LOG_INFO, 0, tb);
     }
 
     t_sleep(DEVICE.socket_connection_errorsleeptime);
@@ -2271,7 +2393,7 @@ int openmodem()
         alarm_handler0(LOG_ERR, tb);
       }
       else
-        writelogfile(LOG_INFO, 0, tb);
+        writelogfile0(LOG_INFO, 0, tb);
 
       t_sleep(DEVICE.device_open_errorsleeptime);
     }
@@ -2496,7 +2618,7 @@ int talk_with_modem()
             sprintf(strchr(temp, 0), " %02X[%c]", (unsigned char) answer[i], ((unsigned char) answer[i] >= ' ') ? answer[i] : '.');
           }
 
-          writelogfile(LOG_CRIT, 0, temp);
+          writelogfile0(LOG_CRIT, 0, temp);
         }
 
         // 3.1.12:
